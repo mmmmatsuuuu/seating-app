@@ -1,0 +1,108 @@
+/* src/index.css */
+
+/*
+  Material UI の CSS Baseline をインポートします。
+  これにより、ブラウザのデフォルトスタイルのリセットや、
+  Box-sizing の設定など、MUI コンポーネントが正しく表示されるための
+  基本的なスタイルが適用されます。
+
+  @mui/material/styles/normalize.css は CSS Modules 環境でも利用できますが、
+  プロジェクトのセットアップやMUIのバージョンによっては、
+  src/main.tsx で <CssBaseline /> コンポーネントを使用する方法の方が適している場合もあります。
+  ここでは @import を使う方法で記述します。
+*/
+/* @import '@mui/material/styles/normalize.css'; */
+
+/*
+  MUI が推奨するフォントファミリー Roboto を読み込むための記述です。
+  通常は index.html の <head> タグ内で <link> タグを使って読み込むか、
+  Webフォントサービスを利用します。ここではCSSでのインポート例を示しますが、
+  <link> タグの方がパフォーマンスが良い場合があります。
+*/
+/*
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+*/
+
+/*
+  Material Icons を使用する場合のインポートです。
+  これも通常は index.html で <link> タグを使う方が一般的です。
+*/
+/*
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+*/
+
+
+/*
+  基本的なCSSリセット
+  MUIのベースラインである程度行われますが、念のためbox-sizingなどをここで定義しておくと安全です。
+*/
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /*
+    border-box にすることで、要素の width/height プロパティが
+    padding や border を含んだ全体のサイズを指すようになります。
+    これによりレイアウト計算が容易になります。
+  */
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit; /* 全ての要素に box-sizing: border-box を継承させる */
+}
+
+
+/*
+  body 要素への基本スタイル設定
+  アプリケーション全体に適用されるスタイルです。
+*/
+body {
+  /*
+    MUI で推奨されるフォントスタック。
+    もし上記の @import で Roboto を読み込んでいるか、index.html で読み込んでいる場合は Roboto が優先されます。
+  */
+  font-family: 'Roboto', sans-serif;
+  line-height: 1.5; /* 行の高さ */
+  color: #333; /* 基本の文字色 */
+  background-color: #ffffff; /* アプリケーションの背景色（必要に応じて変更） */
+  min-height: 100vh; /* ビューポートの高さいっぱいに広がるように */
+  /*
+    以下の display: flex と flex-direction: column は、
+    Layout コンポーネントなどでメインコンテンツ領域やフッターを
+    画面下部に配置しやすくするために設定することが多いです。
+  */
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+  React アプリケーションがマウントされるルート要素 (#root) へのスタイル
+  通常は index.html の <div id="root"> にマウントされます。
+  body と同様に flexbox コンテナにすることが多いです。
+*/
+#root {
+  min-height: 100vh; /* ビューポートの高さいっぱいに広がるように */
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* 親要素 (body) の幅に合わせる */
+}
+
+
+/*
+  その他の全体に適用したいスタイルがあればここに追加します。
+  例: リンクのデフォルトスタイルをなくす場合など。
+*/
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 必要に応じて、特定のクラスに対する全体スタイルなどを追加 */
+/*
+.some-global-utility {
+  margin-bottom: 16px;
+}
+*/

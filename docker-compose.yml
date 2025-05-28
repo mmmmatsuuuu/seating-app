@@ -1,0 +1,25 @@
+version: '3.8' # Docker Compose ファイルフォーマットのバージョン
+
+services:
+  # アプリケーションサービスを定義
+  app:
+    # 現在のディレクトリにあるDockerfileを使ってイメージをビルド
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # ホストマシンの現在のディレクトリ (.) をコンテナ内の /app ディレクトリにマウント
+    # 初回はホスト側ディレクトリは空だが、Dockerが自動で作成・同期してくれる
+    volumes:
+      - .:/app
+      # node_modulesディレクトリはコンテナ内で管理するため、ボリュームマウントから除外する
+      # - /app/node_modules
+    # コンテナの内部ポート (5173) をホストマシンのポート (5173) にマッピング
+    # プロジェクト初期化後は開発サーバーにアクセスするために必要
+    ports:
+      - "5173:5173"
+    # 標準入力をオープンにして、ttyを割り当てる (対話的な操作のために必要)
+    stdin_open: true
+    tty: true
+    # コンテナ起動時に実行するデフォルトコマンドは指定しない
+    # コマンドは docker compose run または docker compose up で指定する
+    # command: ["npm", "run", "dev", "--", "--host"] # この行を追加または修正
