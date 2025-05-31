@@ -8,6 +8,7 @@ import OutputPanel from "./components/Output/OutputPanel";
 import StudentInput from "./components/Student/StudentInput"; // フェーズ 1
 import SeatConfig from "./components/Config/SeatConfig";
 import RelationConfig from "./components/Config/RelationConfig";
+import FixedSeatConfig from "./components/Config/FixedSeatConfig";
 import RouletteDisplay from "./components/Roulette/RouletteDisplay";
 import SeatingChart from "./components/Chart/SeatingChart";
 
@@ -16,9 +17,16 @@ import { Typography, Box } from "@mui/material";
 import type { SeatMapData } from "./types/Seat";
 import type { Student } from "./types/Student";
 import type { RelationConfigData } from "./types/Relation";
+import type { FixedSeatAssignment } from "./types/Seat";
 
 function AppContent() {
-  const { students, setStudents, seatMap, setSeatMap, appPhase, setAppPhase, relationConfig, setRelationConfig } = useAppState();
+  const { 
+    students, setStudents,
+    seatMap, setSeatMap,
+    appPhase, setAppPhase,
+    relationConfig, setRelationConfig,
+    fixedSeatAssignments, setFixedSeatAssignments,
+  } = useAppState();
 
   // 生徒情報読み込み完了ハンドラ
   const handleStudentsLoaded = useCallback((loadedStudents: Student[]) => {
@@ -57,24 +65,37 @@ function AppContent() {
                   students={students}
                   onConfigFinished={(updateSeatMap) => {
                     setSeatMap(updateSeatMap);
-                    setAppPhase(AppPhaseConstants.relation); // 座席設定後は関係性設定フェーズへ進む
+                    setAppPhase(AppPhaseConstants.fixedSeat); // 座席設定後は関係性設定フェーズへ進む
                   }}
                   onCancel={() => {
                     // キャンセル時の処理 (必要に応じて実装)
                   }}
                 />;
-      case AppPhaseConstants.relation:
-        return  <RelationConfig 
+      case AppPhaseConstants.fixedSeat:
+        return  <FixedSeatConfig 
                   students={students}
-                  currentRelationConfig={relationConfig}
-                  onConfigFinished={(updateRelationConfig: RelationConfigData[]) => {
-                    setRelationConfig(updateRelationConfig);
-                    setAppPhase(AppPhaseConstants.roulette); // 関係性設定後はルーレットフェーズへ進む
+                  seatMap={seatMap}
+                  currentFixedSeatAssignments={fixedSeatAssignments}
+                  onConfigFinished={(updateFixedSeatAssignments: FixedSeatAssignment[]) => {
+                    setFixedSeatAssignments(updateFixedSeatAssignments);
+                    setAppPhase(AppPhaseConstants.roulette); 
                   }}
                   onCancel={() => {
                     // キャンセル時の処理 (必要に応じて実装)
                   }}
                 />;
+      // case AppPhaseConstants.relation:
+      //   return  <RelationConfig 
+      //             students={students}
+      //             currentRelationConfig={relationConfig}
+      //             onConfigFinished={(updateRelationConfig: RelationConfigData[]) => {
+      //               setRelationConfig(updateRelationConfig);
+      //               setAppPhase(AppPhaseConstants.roulette); // 関係性設定後はルーレットフェーズへ進む
+      //             }}
+      //             onCancel={() => {
+      //               // キャンセル時の処理 (必要に応じて実装)
+      //             }}
+      //           />;
       case AppPhaseConstants.roulette:
         return  <RouletteDisplay />;
       case AppPhaseConstants.chart:

@@ -285,16 +285,20 @@ const OutputPanel: React.FC = () => {
         <Typography variant="h6" gutterBottom align="center">
           座席表プレビューと詳細データ
         </Typography>
-        <div id="main-seating-chart-container" style={{ padding: '20px', overflowX: 'auto' }}>
-          {/* 視覚的な座席表 */}
-          <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>座席表</Typography>
-          <Typography variant="h5"  sx={{ my: 2, mx: 32, p: 1, border: 2, textAlign: "center" }}>教卓</Typography>
-          <PrintableSeatChart
-            seatMap={seatMap}
-            students={students}
-            selectedFields={selectedFields}
-          />
+        <div
+          style={{overflow: 'scroll'}}
+        >
+          <div id="main-seating-chart-container" style={{ padding: '20px', overflowX: 'scroll', width: '1181px' }}>
+            {/* 視覚的な座席表 */}
+            <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>座席表</Typography>
+            <Typography variant="h5"  sx={{ my: 2, mx: 32, p: 1, border: 2, textAlign: "center" }}>教卓</Typography>
+            <PrintableSeatChart
+              seatMap={seatMap}
+              students={students}
+              selectedFields={selectedFields}
+            />
 
+          </div>
         </div>
         {/* 詳細データテーブル */}
         {hasSelectedFields ? (

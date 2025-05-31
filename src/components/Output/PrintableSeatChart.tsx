@@ -47,7 +47,6 @@ const PrintableSeatChart: React.FC<PrintableSeatChartProps> = ({
         border: '1px solid #ccc', // 全体の枠線
         padding: '10px', // 内側の余白
         backgroundColor: '#f9f9f9', // 背景色
-        maxWidth: '100%', // 親要素の幅に合わせる
         overflowX: 'auto', // 横スクロールが必要な場合
       }}
     >
@@ -70,6 +69,7 @@ const PrintableSeatChart: React.FC<PrintableSeatChartProps> = ({
               border: '1px solid #ddd', // 座席の枠線
               borderRadius: '8px', // 角丸
               padding: '10px', // 座席内の余白
+              aspectRatio: '16/11',
               minHeight: '80px', // 最小高さ
               display: 'flex',
               flexDirection: 'column',
@@ -87,12 +87,25 @@ const PrintableSeatChart: React.FC<PrintableSeatChartProps> = ({
                 {student ? ( // 生徒が割り当てられている場合
                   <div style={{ fontSize: '0.85em' }}>
                     {/* 選択されたフィールドに基づいて生徒情報を表示 */}
-                    {selectedFields.number && student.number && <div>{`出席番号: ${student.number}`}</div>}
-                    {selectedFields.name && student.name && <div style={{ fontSize: 20 }}>{`${student.name}`}</div>}
-                    {selectedFields.kana && student.kana && <div>{`${student.kana}`}</div>}
-                    {selectedFields.info1 && student.info1 && <div>{`${student.info1}`}</div>}
-                    {selectedFields.info2 && student.info2 && <div>{`${student.info2}`}</div>}
-                    {selectedFields.info3 && student.info3 && <div>{`${student.info3}`}</div>}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      {selectedFields.number && student.number ? <div>{`${student.number}: `}</div>: <div></div>}
+                      {selectedFields.name && student.name ? <div style={{ fontSize: 16, fontWeight: 'bold' }}>{`${student.name}`}</div>: <div>-</div>}
+                    </div>
+                    {selectedFields.kana && student.kana ? <div>{`${student.kana}`}</div>: <div>-</div>}
+                    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'end', alignItems: 'start', gap: '4px', color: '#666' }}>
+                      {selectedFields.info1 && student.info1 && <div>{`${student.info1}`}</div>}
+                      {selectedFields.info2 && student.info2 && <div>{`${student.info2}`}</div>}
+                      {selectedFields.info3 && student.info3 && <div>{`${student.info3}`}</div>}
+                    </div>
                     {selectedFields.id && student.id && <div>{`生徒ID: ${student.id}`}</div>}
                   </div>
                 ) : ( // 生徒が割り当てられていない場合

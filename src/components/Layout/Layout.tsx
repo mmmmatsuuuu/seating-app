@@ -28,6 +28,8 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
     setRouletteState,
     relationConfig,
     setRelationConfig,
+    fixedSeatAssignments,
+    setFixedSeatAssignments,
   } = useAppState();
 
   // メニューの状態管理
@@ -51,6 +53,7 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
         appPhase,
         rouletteState,
         relationConfig,
+        fixedSeatAssignments, // 新しい固定座席割り当てを保存
       };
       saveAppData(dataToSave); // LocalStorageにデータを保存
       alert('データを保存しました！');
@@ -76,6 +79,7 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
         setAppPhase(loadedData.appPhase);
         setRouletteState(loadedData.rouletteState);
         setRelationConfig(loadedData.relationConfig);
+        setFixedSeatAssignments(loadedData.fixedSeatAssignments); // 新しい固定座席割り当てをセット
         alert('データを読み込みました！');
       } else {
         alert('保存されたデータがありません。');
@@ -102,6 +106,7 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
         isStopped: false,
       });
       setRelationConfig([]);
+      setFixedSeatAssignments([]); // 新しい固定座席割り当てをリセット
       alert('全てのデータがリセットされました。');
     } catch (error) {
       // clearAppData 内でエラーは捕捉されるが、必要ならここでも処理
@@ -113,7 +118,8 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
   const appPhases: AppPhase[] = [
     "input",
     "config",
-    "relation",
+    "fixedSeat",
+    // "relation",
     "roulette",
     "chart",
     "finished",

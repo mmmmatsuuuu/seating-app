@@ -17,3 +17,20 @@ export interface SeatMapData {
 
 // SeatMapData の配列は座席マップ全体を表します。
 export type SeatMap = SeatMapData[];
+
+/**
+ * 固定座席割り当ての型定義
+ * 特定の生徒が、特定の座席に割り当てられていることを示します。
+ */
+export interface FixedSeatAssignment {
+  /**
+   * 割り当てられた生徒のID。
+   * Student 型の id プロパティに対応します。
+   */
+  studentId: string;
+  /**
+   * 割り当てられた座席のID。
+   * 例: "Seat-1", "A-1", "B-3" など、座席を一意に識別する文字列。
+   */
+  seatId: string;
+}

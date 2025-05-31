@@ -5,6 +5,7 @@ import type { Student } from '../types/Student';
 import type { SeatMap } from '../types/Seat'; // SeatMap は SeatMapData[] なので問題なし
 import type { RouletteState } from '../types/Roulette';
 import type { RelationConfigData } from '../types/Relation';
+import type { FixedSeatAssignment } from '../types/Seat';
 
 // LocalStorageに保存するデータのキー
 const STORAGE_KEY = 'seatingArrangementAppData';
@@ -19,6 +20,7 @@ export interface AppPersistedState {
   appPhase: AppPhase;
   rouletteState: RouletteState;
   relationConfig: RelationConfigData[];
+  fixedSeatAssignments: FixedSeatAssignment[]; // 新しい固定座席割り当ての状態
   // 将来的に保存したい他の状態があればここに追加
 }
 

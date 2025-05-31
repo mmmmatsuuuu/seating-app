@@ -45,6 +45,13 @@ interface StudentListProps {
    * リスト全体のカスタムスタイルを適用します。
    */
   sx?: SxProps<Theme>;
+
+  /**
+   *　表示する生徒の情報のタイプを指定します。
+   * 'minimal' の場合は生徒の名前と番号のみ表示。
+   * 'default' の場合は名前、番号、ふりがな、その他の情報を表示します。
+   */
+  type?: 'minimal' | 'default';
 }
 
 /**
@@ -58,6 +65,7 @@ const StudentList: React.FC<StudentListProps> = ({
   emptyMessage = '生徒がいません。',
   maxHeight,
   sx,
+  type = 'default', // デフォルトは 'default' タイプ
 }) => {
   // 生徒リストを番号順にソート (常にソートされた状態で表示)
   const sortedStudents = useMemo(() => {
@@ -118,6 +126,30 @@ const StudentList: React.FC<StudentListProps> = ({
               <ListItemText
                 primary={`${student.name}`}
               />
+              {type === 'default' && student.kana && 
+                <ListItemText
+                  secondary={`(${student.kana})`}
+                  sx={{ ml: 2, color: 'text.secondary' }}
+                />
+              }
+              {type === 'default' && student.info1 && 
+                <ListItemText
+                  secondary={`(${student.info1})`}
+                  sx={{ ml: 2, color: 'text.secondary' }}
+                />
+              }
+              {type === 'default' && student.info2 && 
+                <ListItemText
+                  secondary={`(${student.info2})`}
+                  sx={{ ml: 2, color: 'text.secondary' }}
+                />
+              }
+              {type === 'default' && student.info3 && 
+                <ListItemText
+                  secondary={`(${student.info3})`}
+                  sx={{ ml: 2, color: 'text.secondary' }}
+                />
+              }
             </ListItem>
           ))
         )}

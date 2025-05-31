@@ -1,5 +1,3 @@
-// src/components/Roulette/RouletteDisplay.tsx
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
@@ -28,7 +26,7 @@ import Seat from '../Seat/Seat'; // 座席コンポーネント
 import StudentList from '../Student/StudentList'; // 生徒リストコンポーネント
 
 import type { Student } from '../../types/Student';
-import type { SeatMap } from '../../types/Seat';
+import type { SeatMapData } from '../../types/Seat';
 import type { RelationConfigData } from '../../types/Relation';
 import { useAppState } from '../../contexts/AppStateContext';
 import type { TransitionProps } from '@mui/material/transitions';
@@ -38,7 +36,7 @@ import type { RouletteState } from '../../types/Roulette';
 // ダイアログのトランジション設定
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
-    children: React.ReactElement; // childrenの型をより厳密に
+    children: React.ReactElement;
   },
   ref: React.Ref<unknown>,
 ) {
@@ -46,7 +44,7 @@ const Transition = React.forwardRef(function Transition(
 });
 
 // 隣接する座席IDを返すヘルパー関数 (座席IDの形式が "R{row}C{col}" と仮定)
-const getAdjacentSeatIds = (seatId: string, seatMap: SeatMap): string[] => {
+const getAdjacentSeatIds = (seatId: string, seatMap: SeatMapData[]): string[] => {
   const match = seatId.match(/R(\d+)C(\d+)/);
   if (!match) return [];
 
@@ -54,17 +52,6 @@ const getAdjacentSeatIds = (seatId: string, seatMap: SeatMap): string[] => {
   const col = parseInt(match[2], 10);
   const adjacentIds: string[] = [];
 
-  // seatMapが空の場合や、パースできないseatIdが含まれる場合のフォールバック
-  const allRows = seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[1] || '0', 10));
-  const allCols = seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[2] || '0', 10));
-
-  const maxRow = allRows.length > 0 ? Math.max(...allRows) : 0;
-  const maxCol = allCols.length > 0 ? Math.max(...allCols) : 0;
-  const minRow = allRows.length > 0 ? Math.min(...allRows) : 0;
-  const minCol = allCols.length > 0 ? Math.min(...allCols) : 0;
-
-
-  // 上、下、左、右の隣接座席
   const potentialAdjacents = [
     `R${row - 1}C${col}`, // 上
     `R${row + 1}C${col}`, // 下
@@ -73,15 +60,8 @@ const getAdjacentSeatIds = (seatId: string, seatMap: SeatMap): string[] => {
   ];
 
   potentialAdjacents.forEach(adjId => {
-    // 実際に座席マップに存在し、かつ自分自身ではないことを確認
-    // 行と列の範囲内であるかもチェック
-    const adjMatch = adjId.match(/R(\d+)C(\d+)/);
-    if (adjMatch) {
-      const adjRow = parseInt(adjMatch[1], 10);
-      const adjCol = parseInt(adjMatch[2], 10);
-      if (adjRow >= minRow && adjRow <= maxRow && adjCol >= minCol && adjCol <= maxCol && seatMap.some(s => s.seatId === adjId) && adjId !== seatId) {
-        adjacentIds.push(adjId);
-      }
+    if (seatMap.some(s => s.seatId === adjId) && adjId !== seatId) {
+      adjacentIds.push(adjId);
     }
   });
   return adjacentIds;
@@ -100,17 +80,20 @@ const RouletteDisplay: React.FC = () => {
     rouletteState,
     setRouletteState,
     relationConfig,
-    setAppPhase, // アプリフェーズ変更用
+    fixedSeatAssignments, // fixedSeatAssignments を取得
+    setAppPhase,
   } = useAppState();
 
   const rouletteIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const animationFrameRef = useRef<number | null>(null); // requestAnimationFrame のIDを保持
-  const rouletteSpeed = 50; // 空席が点灯する速度 (ms)
+  const animationFrameRef = useRef<number | null>(null);
+  const rouletteSpeed = 60;
   const [openResultModal, setOpenResultModal] = useState<boolean>(false);
   const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<Student | null>(null);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
+  // ユーザーがルーレット中に手動で選択した座席ID
+  const [manuallySelectedSeatIdForRoulette, setManuallySelectedSeatIdForRoulette] = useState<string | null>(null);
 
-  // 未割り当ての生徒リスト
+  // 未割り当ての生徒リスト (ルーレット開始時には全ての生徒が含まれる可能性がある)
   const unassignedStudents = useMemo(() => {
     return students.filter(s => !s.isAssigned).sort((a, b) => Number(a.number) - Number(b.number));
   }, [students]);
@@ -123,11 +106,9 @@ const RouletteDisplay: React.FC = () => {
   // ルーレット開始前の準備
   useEffect(() => {
     if (!rouletteState.currentAssigningStudent && unassignedStudents.length > 0) {
-      // まだ割り当てる生徒が選択されていない場合、最初の未割り当て生徒を自動選択
       setSelectedStudentForAssignment(unassignedStudents[0]);
       setRouletteState((prev:RouletteState) => ({ ...prev, currentAssigningStudent: unassignedStudents[0] }));
     } else if (unassignedStudents.length === 0 && rouletteState.isStopped === false) {
-      // 全ての生徒が割り当てられたら、ルーレットを停止状態にする
       setRouletteState((prev:RouletteState) => ({ ...prev, isRunning: false, isStopped: true }));
     }
   }, [unassignedStudents, rouletteState.currentAssigningStudent, rouletteState.isStopped, setRouletteState]);
@@ -136,20 +117,20 @@ const RouletteDisplay: React.FC = () => {
   // 関係性制約をチェックする関数
   const checkRelationConstraints = useCallback((
     targetSeatId: string,
-    assigningStudent: Student,
-    currentSeatMap: SeatMap,
+    assigningStudent: Student | null,
+    currentSeatMap: SeatMapData[],
     allStudents: Student[],
     relations: RelationConfigData[]
   ): boolean => {
+    if (!assigningStudent) return false;
+
     const adjacentSeats = getAdjacentSeatIds(targetSeatId, currentSeatMap);
 
     for (const rel of relations) {
-      // 対象生徒が含まれる関係性のみをチェック
       if (rel.studentId1 === assigningStudent.id || rel.studentId2 === assigningStudent.id) {
         const partnerId = rel.studentId1 === assigningStudent.id ? rel.studentId2 : rel.studentId1;
         const partnerStudent = allStudents.find(s => s.id === partnerId);
 
-        // パートナーがまだ割り当てられていない、または座席IDがない場合はこの関係性はスキップ
         if (!partnerStudent || !partnerStudent.isAssigned || !partnerStudent.assignedSeatId) {
           continue;
         }
@@ -157,22 +138,18 @@ const RouletteDisplay: React.FC = () => {
         const partnerSeatId = partnerStudent.assignedSeatId;
 
         if (rel.type === RelationTypeConstants.CO_SEAT) {
-          // 一緒に座りたい関係性: パートナーが隣接する座席にいるべき
           if (!adjacentSeats.includes(partnerSeatId)) {
-            // 隣接していない場合はNG
             return false;
           }
         } else if (rel.type === RelationTypeConstants.NO_CO_SEAT) {
-          // 一緒に座りたくない関係性: パートナーが隣接する座席にいるべきではない
           if (adjacentSeats.includes(partnerSeatId)) {
-            // 隣接している場合はNG
             return false;
           }
         }
       }
     }
-    return true; // 全ての制約を満たしている
-  }, []); // getAdjacentSeatIds は useCallback の外にあるため依存配列から除外
+    return true;
+  }, []);
 
 
   // ルーレット開始ハンドラ
@@ -188,9 +165,9 @@ const RouletteDisplay: React.FC = () => {
     if (rouletteState.isRunning) return;
 
     setLocalErrorMessage(null);
-    setRouletteState((prev:RouletteState) => ({ ...prev, isRunning: true, isStopped: false, currentSelectedSeatId: null })); // 初期化時にcurrentSelectedSeatIdをnullに
+    setRouletteState((prev:RouletteState) => ({ ...prev, isRunning: true, isStopped: false, currentSelectedSeatId: null }));
+    setManuallySelectedSeatIdForRoulette(null); // ルーレット開始時に手動選択をクリア
 
-    // 既存のアニメーションフレームをキャンセル
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -198,7 +175,6 @@ const RouletteDisplay: React.FC = () => {
         clearInterval(rouletteIntervalRef.current);
         rouletteIntervalRef.current = null;
     }
-
 
     let lastTime = 0;
     const animate = (currentTime: number) => {
@@ -215,11 +191,9 @@ const RouletteDisplay: React.FC = () => {
     };
     animationFrameRef.current = requestAnimationFrame(animate);
 
-    // 一応、長時間実行防止のための setInterval (通常は requestAnimationFrame で十分)
-    // 実際のルーレット停止はこの setInterval ではなく stopRoulette で行う
     rouletteIntervalRef.current = setInterval(() => {
         // ここでは特に何もしない
-    }, 1000); // 1秒ごとにチェック
+    }, 1000);
   }, [availableSeats, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
 
 
@@ -232,108 +206,135 @@ const RouletteDisplay: React.FC = () => {
       rouletteIntervalRef.current = null;
     }
 
-    // requestAnimationFrame も停止
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
 
-    let finalSelectedSeatId = rouletteState.currentSelectedSeatId;
+    setLocalErrorMessage(null); // 以前のエラーメッセージをクリア
 
-    // もし点灯が始まっていないなどでnullの場合、ランダムに一つ選ぶ
-    if (!finalSelectedSeatId && availableSeats.length > 0) {
-        finalSelectedSeatId = availableSeats[Math.floor(Math.random() * availableSeats.length)]?.seatId || null;
-    }
-
-    if (!finalSelectedSeatId || !selectedStudentForAssignment) {
-      setLocalErrorMessage('座席または生徒が選択できませんでした。');
-      setRouletteState(prev => ({ ...prev, isRunning: false, isStopped: true, currentSelectedSeatId: null, currentAssigningStudent: null }));
-      return;
-    }
-
-    // 関係性制約のチェックと再抽選ロジック
-    let attempts = 0;
-    const maxAttempts = 100; // 無限ループ防止のため
-    let isValidSeat = false;
-    let chosenSeatId = finalSelectedSeatId;
-    const shuffledAvailableSeats = [...availableSeats].sort(() => Math.random() - 0.5); // 選択肢をシャッフル
-
-    while (!isValidSeat && attempts < maxAttempts) {
-      // 既に選ばれた座席が有効かチェック
-      if (checkRelationConstraints(chosenSeatId, selectedStudentForAssignment, seatMap, students, relationConfig)) {
-        isValidSeat = true;
-      } else {
-        // 制約を満たさない場合、別のランダムな空席を再選択
-        const nextSeat = shuffledAvailableSeats.find(seat =>
-            seat.seatId !== chosenSeatId &&
-            checkRelationConstraints(seat.seatId, selectedStudentForAssignment, seatMap, students, relationConfig)
-        );
-
-        if (nextSeat) {
-            chosenSeatId = nextSeat.seatId;
-        } else {
-            // 関係性を満たす座席が見つからない場合
-            setLocalErrorMessage('関係性を満たす空席が見つかりませんでした。');
-            isValidSeat = true; // ループを抜けるため
-            chosenSeatId = ""; // 割り当て失敗
-            break;
-        }
-      }
-      attempts++;
-    }
-
-    if (!isValidSeat || !chosenSeatId) {
-        setLocalErrorMessage('関係性を満たす座席を見つけられませんでした。手動で割り当てるか、関係性設定を見直してください。');
-        setRouletteState(prev => ({
-            ...prev,
-            isRunning: false,
-            isStopped: true,
-            currentSelectedSeatId: null,
-            currentAssigningStudent: null,
-        }));
+    if (!selectedStudentForAssignment) {
+        setLocalErrorMessage('座席を割り当てる生徒が選択されていません。');
+        setRouletteState(prev => ({ ...prev, isRunning: false, isStopped: true, currentSelectedSeatId: null, currentAssigningStudent: null }));
+        setManuallySelectedSeatIdForRoulette(null);
         return;
     }
 
-    // 座席の割り当て
+    let finalChosenSeatId: string | null = null;
+    let isValidFinalSeat = false;
+
+    // 現在割り当てようとしている生徒が固定座席を持っているかチェック
+    const fixedAssignmentForStudent = fixedSeatAssignments.find(fsa => fsa.studentId === selectedStudentForAssignment.id);
+
+    if (fixedAssignmentForStudent) {
+      // 1. 生徒が固定座席を持っている場合、その固定座席に強制的に決定
+      const fixedSeatId = fixedAssignmentForStudent.seatId;
+      const targetFixedSeat = seatMap.find(seat => seat.seatId === fixedSeatId);
+
+      if (!targetFixedSeat || !targetFixedSeat.isUsable) {
+        setLocalErrorMessage(`生徒 ${selectedStudentForAssignment.name} の固定座席 (${fixedSeatId}) は使用できません。座席設定を確認してください。`);
+      } else if (targetFixedSeat.assignedStudentId && targetFixedSeat.assignedStudentId !== selectedStudentForAssignment.id) {
+        // 既に他の生徒に割り当てられている場合
+        setLocalErrorMessage(`生徒 ${selectedStudentForAssignment.name} の固定座席 (${fixedSeatId}) は既に他の生徒に割り当てられています。`);
+      } else {
+        finalChosenSeatId = fixedSeatId;
+        isValidFinalSeat = true;
+      }
+    } else if (manuallySelectedSeatIdForRoulette) {
+      // 2. 固定座席を持たない生徒で、ユーザーが手動で座席を選択している場合、それを優先
+      const selectedSeatData = availableSeats.find(seat => seat.seatId === manuallySelectedSeatIdForRoulette);
+      if (selectedSeatData) {
+          if (checkRelationConstraints(manuallySelectedSeatIdForRoulette, selectedStudentForAssignment, seatMap, students, relationConfig)) {
+              finalChosenSeatId = manuallySelectedSeatIdForRoulette;
+              isValidFinalSeat = true;
+          } else {
+              setLocalErrorMessage(`選択された座席 (${manuallySelectedSeatIdForRoulette}) は関係性制約を満たしません。`);
+          }
+      } else {
+          setLocalErrorMessage(`選択された座席 (${manuallySelectedSeatIdForRoulette}) は利用できません。`);
+      }
+    }
+
+    // 3. 上記のいずれでも有効な座席が見つからなかった場合、ルーレットが点灯していた座席を試す (固定座席のない生徒のみ)
+    if (!isValidFinalSeat && rouletteState.currentSelectedSeatId) {
+        const currentRouletteSeatData = availableSeats.find(seat => seat.seatId === rouletteState.currentSelectedSeatId);
+        if (currentRouletteSeatData) {
+            if (checkRelationConstraints(rouletteState.currentSelectedSeatId, selectedStudentForAssignment, seatMap, students, relationConfig)) {
+                finalChosenSeatId = rouletteState.currentSelectedSeatId;
+                isValidFinalSeat = true;
+            }
+        }
+    }
+
+    // 4. 上記のいずれでも有効な座席が見つからなかった場合、ランダムに制約を満たす座席を探す (固定座席のない生徒のみ)
+    if (!isValidFinalSeat) {
+        let attempts = 0;
+        const maxAttempts = 100;
+        const shuffledAvailableSeats = [...availableSeats].sort(() => Math.random() - 0.5);
+
+        while (!isValidFinalSeat && attempts < maxAttempts) {
+            const potentialSeat = shuffledAvailableSeats[attempts % shuffledAvailableSeats.length];
+
+            if (potentialSeat && potentialSeat.seatId) {
+                if (checkRelationConstraints(potentialSeat.seatId, selectedStudentForAssignment, seatMap, students, relationConfig)) {
+                    finalChosenSeatId = potentialSeat.seatId;
+                    isValidFinalSeat = true;
+                }
+            }
+            attempts++;
+        }
+
+        if (!isValidFinalSeat || !finalChosenSeatId) {
+            setLocalErrorMessage('関係性を満たす空席が見つかりませんでした。手動で割り当てるか、関係性設定を見直してください。');
+            setRouletteState(prev => ({
+                ...prev,
+                isRunning: false,
+                isStopped: true,
+                currentSelectedSeatId: null,
+                currentAssigningStudent: null,
+            }));
+            setManuallySelectedSeatIdForRoulette(null);
+            return;
+        }
+    }
+
+    // 最終的に決定した座席で割り当てを実行
     const updatedSeatMap = seatMap.map(seat =>
-      seat.seatId === chosenSeatId
+      seat.seatId === finalChosenSeatId
         ? { ...seat, assignedStudentId: selectedStudentForAssignment.id }
         : seat
     );
     setSeatMap(updatedSeatMap);
-    
 
-    // 生徒の割り当て状態を更新
     const updatedStudents = students.map(s =>
       s.id === selectedStudentForAssignment.id
-        ? { ...s, isAssigned: true, assignedSeatId: chosenSeatId }
+        ? { ...s, isAssigned: true, assignedSeatId: finalChosenSeatId }
         : s
     );
     setStudents(updatedStudents);
 
-    // ルーレットの状態を更新
     setRouletteState(prev => ({
       ...prev,
       isRunning: false,
-      isStopped: true, // 停止状態
-      currentSelectedSeatId: chosenSeatId, // 最終的に割り当てられた座席
+      isStopped: true,
+      currentSelectedSeatId: finalChosenSeatId,
       currentAssigningStudent: selectedStudentForAssignment,
-      winningHistory: [...prev.winningHistory, { studentId: selectedStudentForAssignment.id, seatId: chosenSeatId }],
+      winningHistory: [...prev.winningHistory, { studentId: selectedStudentForAssignment.id, seatId: finalChosenSeatId! }],
     }));
 
-    setOpenResultModal(true); // 結果モーダルを開く
-  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, selectedStudentForAssignment, checkRelationConstraints, seatMap, students, relationConfig, setSeatMap, setStudents, setRouletteState]);
+    setManuallySelectedSeatIdForRoulette(null); // 割り当て成功後も手動選択をクリア
+    setOpenResultModal(true);
+  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, selectedStudentForAssignment, checkRelationConstraints, seatMap, students, relationConfig, setSeatMap, setStudents, setRouletteState, manuallySelectedSeatIdForRoulette, fixedSeatAssignments]);
+
 
   // 結果モーダルを閉じるハンドラ
   const handleCloseResultModal = useCallback(() => {
     setOpenResultModal(false);
-    // 次の生徒を自動的に選択するか、完了状態にする
     const nextUnassignedStudent = unassignedStudents.find(s => s.id !== selectedStudentForAssignment?.id);
     if (nextUnassignedStudent) {
       setSelectedStudentForAssignment(nextUnassignedStudent);
-      setRouletteState(prev => ({ ...prev, currentAssigningStudent: nextUnassignedStudent, isStopped: false, currentSelectedSeatId: null })); // next student selection clears previous seat highlight
+      setRouletteState(prev => ({ ...prev, currentAssigningStudent: nextUnassignedStudent, isStopped: false, currentSelectedSeatId: null }));
     } else {
-      // 全員割り当て完了
       setRouletteState(prev => ({ ...prev, isStopped: true, currentSelectedSeatId: null, currentAssigningStudent: null }));
       setLocalErrorMessage('全ての生徒の座席が決定しました！');
     }
@@ -349,7 +350,8 @@ const RouletteDisplay: React.FC = () => {
     if (student && !student.isAssigned) {
       setSelectedStudentForAssignment(student);
       setRouletteState(prev => ({ ...prev, currentAssigningStudent: student, isStopped: false, currentSelectedSeatId: null }));
-      setLocalErrorMessage(null); // エラーメッセージをクリア
+      setLocalErrorMessage(null);
+      setManuallySelectedSeatIdForRoulette(null); // 生徒選択時に手動選択をクリア
     } else {
         setLocalErrorMessage('既に座席が割り当てられているか、生徒が見つかりません。');
     }
@@ -358,17 +360,17 @@ const RouletteDisplay: React.FC = () => {
 
   // リセットボタンハンドラ
   const handleResetRoulette = useCallback(() => {
-    if (window.confirm('現在の座席割り当てとルーレット状態を全てリセットしてもよろしいですか？')) {
-      // 座席マップの割り当てをクリア
+    if (window.confirm('現在のルーレットによる座席割り当てを全てリセットしてもよろしいですか？固定座席の設定は維持されます。')) {
+      // 座席マップの割り当てを全てクリア
       const resetSeatMap = seatMap.map(seat => ({ ...seat, assignedStudentId: null }));
       setSeatMap(resetSeatMap);
 
-      // 生徒の割り当て状態をクリア
+      // 生徒の割り当て状態を全てクリア
       const resetStudents = students.map(s => ({ ...s, isAssigned: false, assignedSeatId: null }));
       setStudents(resetStudents);
 
       // ルーレットの状態を初期化
-      const initialAssigningStudent = unassignedStudents.length > 0 ? unassignedStudents[0] : null;
+      const initialAssigningStudent = resetStudents.filter(s => !s.isAssigned).sort((a,b) => Number(a.number) - Number(b.number))[0] || null;
       setRouletteState({
         isRunning: false,
         currentSelectedSeatId: null,
@@ -377,9 +379,11 @@ const RouletteDisplay: React.FC = () => {
         isStopped: false,
       });
       setLocalErrorMessage(null);
-      setSelectedStudentForAssignment(initialAssigningStudent); // 最初の生徒を再選択
+      setSelectedStudentForAssignment(initialAssigningStudent);
+      setManuallySelectedSeatIdForRoulette(null); // リセット時にも手動選択をクリア
     }
-  }, [seatMap, students, unassignedStudents, setSeatMap, setStudents, setRouletteState]);
+  }, [seatMap, students, setSeatMap, setStudents, setRouletteState]); // fixedSeatAssignments は依存配列から削除
+
 
   // 全員一括割り当てハンドラ
   const handleBulkAssign = useCallback(() => {
@@ -391,6 +395,8 @@ const RouletteDisplay: React.FC = () => {
         setLocalErrorMessage('割り当て可能な空席がありません。');
         return;
     }
+    // このチェックは、固定座席の生徒が割り当てられる前の状態で行われるため、
+    // 厳密には不正確になる可能性がありますが、大まかな初期チェックとして残します。
     if (unassignedStudents.length > availableSeats.length) {
         setLocalErrorMessage(`生徒 (${unassignedStudents.length}人) が空席 (${availableSeats.length}席) より多いため、一括割り当てできません。`);
         return;
@@ -400,35 +406,113 @@ const RouletteDisplay: React.FC = () => {
     }
 
     setLocalErrorMessage(null);
-    let tempSeatMap: SeatMap = [...seatMap];
-    let tempStudents: Student[] = [...students];
+    // 現在の seatMap と students を基に一時的なコピーを作成
+    // JSON.parse(JSON.stringify()) を使用してディープコピーを確実にする
+    let tempSeatMap: SeatMapData[] = JSON.parse(JSON.stringify(seatMap));
+    let tempStudents: Student[] = JSON.parse(JSON.stringify(students));
     let tempWinningHistory = [...rouletteState.winningHistory];
 
-    const assignableSeatsCopy = [...availableSeats]; // 利用可能な座席のシャッフルコピー
+    // 割り当て済み生徒のIDを追跡するためのSet
+    const assignedStudentIdsInTemp = new Set<string>();
+    // 割り当て済み座席のIDを追跡するためのSet
+    const assignedSeatIdsInTemp = new Set<string>();
+
+    // --- フェーズ1: 固定座席の生徒を割り当てる ---
+    const fixedAssignmentErrors: string[] = [];
+    fixedSeatAssignments.forEach(fixedAssignment => {
+      const student = tempStudents.find(s => s.id === fixedAssignment.studentId);
+      const fixedSeat = tempSeatMap.find(s => s.seatId === fixedAssignment.seatId);
+
+      if (!student) {
+        fixedAssignmentErrors.push(`固定座席が設定されている生徒 (${fixedAssignment.studentId}) が見つかりません。`);
+        return;
+      }
+      if (!fixedSeat) {
+        fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) が見つかりません。`);
+        return;
+      }
+      if (!fixedSeat.isUsable) {
+        fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) は使用不可です。`);
+        return;
+      }
+      // ここではまだ誰も割り当てられていないはずなので、このチェックは主に論理的な安全のため
+      if (fixedSeat.assignedStudentId && fixedSeat.assignedStudentId !== student.id) {
+        fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) は既に他の生徒に割り当てられています。`);
+        return;
+      }
+      // もし既に割り当て済みであればスキップ（これは App.tsx の初期化ロジックに依存）
+      if (assignedStudentIdsInTemp.has(student.id)) {
+        console.warn(`生徒 ${student.name} は既に割り当て済みとして認識されています。`);
+        return;
+      }
+      if (assignedSeatIdsInTemp.has(fixedSeat.seatId)) {
+        console.warn(`座席 ${fixedSeat.seatId} は既に割り当て済みとして認識されています。`);
+        return;
+      }
+
+
+      // 生徒を固定座席に割り当て
+      tempSeatMap = tempSeatMap.map(s =>
+        s.seatId === fixedSeat.seatId
+          ? { ...s, assignedStudentId: student.id }
+          : s
+      );
+      tempStudents = tempStudents.map(s =>
+        s.id === student.id
+          ? { ...s, isAssigned: true, assignedSeatId: fixedSeat.seatId }
+          : s
+      );
+      tempWinningHistory.push({ studentId: student.id, seatId: fixedSeat.seatId });
+      assignedStudentIdsInTemp.add(student.id);
+      assignedSeatIdsInTemp.add(fixedSeat.seatId);
+    });
+
+    if (fixedAssignmentErrors.length > 0) {
+      setLocalErrorMessage('固定座席の割り当て中に問題が発生しました:\n' + fixedAssignmentErrors.join('\n'));
+      // 固定座席の割り当てに失敗した場合は、そこで処理を中断することも検討
+      // 今回は、エラーメッセージを表示しつつ、可能な限りランダム割り当てを続行する
+    }
+
+    // --- フェーズ2: 残りの生徒をランダムに割り当てる ---
+    // 固定座席に割り当てられていない生徒のみを対象とする
+    const remainingUnassignedStudents = tempStudents.filter(s => !s.isAssigned);
+    // 固定座席に割り当てられていない空席のみを対象とする
+    const remainingAvailableSeats = tempSeatMap.filter(seat => seat.isUsable && !seat.assignedStudentId);
+
     // シャッフル
-    for (let i = assignableSeatsCopy.length - 1; i > 0; i--) {
+    for (let i = remainingUnassignedStudents.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [assignableSeatsCopy[i], assignableSeatsCopy[j]] = [assignableSeatsCopy[j], assignableSeatsCopy[i]];
+        [remainingUnassignedStudents[i], remainingUnassignedStudents[j]] = [remainingUnassignedStudents[j], remainingUnassignedStudents[i]];
+    }
+    for (let i = remainingAvailableSeats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remainingAvailableSeats[i], remainingAvailableSeats[j]] = [remainingAvailableSeats[j], remainingAvailableSeats[i]];
     }
 
-    const unassignedCopy = [...unassignedStudents];
-     // シャッフル
-    for (let i = unassignedCopy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [unassignedCopy[i], unassignedCopy[j]] = [unassignedCopy[j], unassignedCopy[i]];
-    }
-
-    unassignedCopy.forEach(student => {
+    remainingUnassignedStudents.forEach(student => {
       let assigned = false;
       let attempts = 0;
-      const maxAttempts = assignableSeatsCopy.length * 2; // 無限ループ防止、十分な試行回数
+      const maxAttempts = remainingAvailableSeats.length * 2; // 無限ループ防止、十分な試行回数
+
+      // 既に割り当て済みであればスキップ（フェーズ1で割り当てられた固定座席の生徒など）
+      if (assignedStudentIdsInTemp.has(student.id)) {
+        assigned = true;
+        return;
+      }
 
       // 関係性制約を満たす座席を見つけるまで試行
       let currentSeatIndex = 0;
-      while (!assigned && currentSeatIndex < assignableSeatsCopy.length && attempts < maxAttempts) {
-        const potentialSeat = assignableSeatsCopy[currentSeatIndex];
+      while (!assigned && currentSeatIndex < remainingAvailableSeats.length && attempts < maxAttempts) {
+        const potentialSeat = remainingAvailableSeats[currentSeatIndex];
 
         if (!potentialSeat || !potentialSeat.seatId) {
+            currentSeatIndex++;
+            attempts++;
+            continue;
+        }
+
+        // 既に割り当て済みであればスキップ
+        if (assignedSeatIdsInTemp.has(potentialSeat.seatId)) {
             currentSeatIndex++;
             attempts++;
             continue;
@@ -448,8 +532,11 @@ const RouletteDisplay: React.FC = () => {
           );
           tempWinningHistory.push({ studentId: student.id, seatId: potentialSeat.seatId });
 
+          assignedStudentIdsInTemp.add(student.id);
+          assignedSeatIdsInTemp.add(potentialSeat.seatId);
+
           // 割り当て済みの座席はリストから削除 (spliceは元の配列を変更するので注意)
-          assignableSeatsCopy.splice(currentSeatIndex, 1);
+          remainingAvailableSeats.splice(currentSeatIndex, 1);
           assigned = true;
         } else {
           // 関係性を満たさない場合、次の座席を試す
@@ -474,21 +561,13 @@ const RouletteDisplay: React.FC = () => {
       currentAssigningStudent: null,
     }));
     setSelectedStudentForAssignment(null);
-    if (!localErrorMessage) { // エラーがなければ成功メッセージ
+    setManuallySelectedSeatIdForRoulette(null); // 一括割り当て時にも手動選択をクリア
+    if (!localErrorMessage) {
       console.log('全ての生徒を一括割り当てしました。');
     }
-  }, [unassignedStudents, availableSeats, seatMap, students, relationConfig, rouletteState.winningHistory, setSeatMap, setStudents, setRouletteState, checkRelationConstraints, localErrorMessage]);
+  }, [unassignedStudents, availableSeats, seatMap, students, relationConfig, rouletteState.winningHistory, fixedSeatAssignments, setSeatMap, setStudents, setRouletteState, checkRelationConstraints, localErrorMessage]);
 
-
-  // 全ての座席が埋まったか、生徒がいなくなったら自動的に次のフェーズへ
   const allStudentsAssigned = unassignedStudents.length === 0;
-
-  // useEffect(() => {
-  //   if (allStudentsAssigned && rouletteState.isStopped) {
-  //     setAppPhase('chart'); // 全員割り当てられたら座席表フェーズへ遷移
-  //   }
-  // }, [allStudentsAssigned, rouletteState.isStopped, setAppPhase]);
-
 
   return (
     <Box sx={{ p: 3 }}>
@@ -497,6 +576,7 @@ const RouletteDisplay: React.FC = () => {
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         未割り当ての生徒を選び、「スタート」で空席をランダムに点灯させ、座席を割り当てます。
+        ルーレット実行中に座席をクリックすると、その座席に決定できます。
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
@@ -528,6 +608,7 @@ const RouletteDisplay: React.FC = () => {
               emptyMessage="全ての生徒が座席に割り当てられました！"
               maxHeight="300px"
               sx={{ mb: 2 }}
+              type='minimal'
             />
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               次に座席を割り当てる生徒:
@@ -573,7 +654,7 @@ const RouletteDisplay: React.FC = () => {
                 color="error"
                 startIcon={<RestartAltIcon />}
                 onClick={handleResetRoulette}
-                disabled={rouletteState.isRunning} // ルーレット実行中はリセットできない
+                disabled={rouletteState.isRunning}
                 sx={{ flexGrow: 1 }}
               >
                 リセット
@@ -589,9 +670,10 @@ const RouletteDisplay: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               座席レイアウト
             </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              ルーレット実行中にクリックすると、その座席に決定します。
+            </Typography>
             <Grid container spacing={1} justifyContent="center" wrap="wrap">
-              {/* rows と cols を取得してレンダリング */}
-              {/* seatMap が空でないことを確認 */}
               {seatMap.length > 0 && Array.from({
                 length: Math.max(...seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[1] || '0', 10)))
               }).map((_, rowIndex) => (
@@ -603,36 +685,38 @@ const RouletteDisplay: React.FC = () => {
                     const seatId = `R${rowIndex + 1}C${colIndex + 1}`;
                     const seatData = seatMap.find(s => s.seatId === seatId);
 
-                    // SeatMapConfigとは異なり、seatDataが存在しない場合は表示しない (グリッドの範囲外)
-                    if (!seatData) return null; // 存在しない座席は表示しない
-                    // if (!seatData || !seatData.isUsable) return null; // 使用不可の座席は表示しない
+                    if (!seatData) return null;
 
-                    // 割り当てられている生徒を探す
                     const assignedStudent = students.find(s => s.id === seatData.assignedStudentId);
 
-                    // 点灯中の座席は特別なスタイルを適用
                     const isHighlighted = rouletteState.isRunning && rouletteState.currentSelectedSeatId === seatId;
-                    const highlightColor = isHighlighted ? 'warning.main' : undefined; // 点灯色
+                    // 手動選択された座席もハイライト
+                    const isManuallySelected = manuallySelectedSeatIdForRoulette === seatId;
+                    const highlightColor = isHighlighted || isManuallySelected ? 'warning.main' : undefined;
 
                     return (
                       // @ts-ignore
                       <Grid item key={seatId}>
                         <Box sx={{
-                            border: isHighlighted ? '3px solid' : '1px solid',
-                            borderColor: isHighlighted ? highlightColor : (assignedStudent ? 'primary.dark' : 'grey.400'),
-                            boxShadow: isHighlighted ? 6 : 1, // 点灯中は影を濃くする
-                            transition: 'all 0.1s ease-in-out', // 点滅を滑らかに
+                            border: (isHighlighted || isManuallySelected) ? '3px solid' : '1px solid',
+                            borderColor: (isHighlighted || isManuallySelected) ? highlightColor : (assignedStudent ? 'primary.dark' : 'grey.400'),
+                            boxShadow: (isHighlighted || isManuallySelected) ? 6 : 1,
+                            transition: 'all 0.1s ease-in-out',
                             borderRadius: 2,
                         }}>
                             <Seat
                               seatId={seatId}
                               seatData={seatData}
                               assignedStudent={assignedStudent || null}
-                              onClick={() => { /* ルーレットフェーズではクリックで割り当てはしない */ }}
-                              isHighlighted={isHighlighted}
-                              isConfigMode={false} // ルーレットフェーズでは設定モードではない
-                              displayMode='roulette' // ルーレットフェーズ用の表示モード
-                              isDragDisabled={true} // ドラッグは無効化
+                              // ルーレット実行中で、かつ空席の場合のみクリック可能
+                              onClick={
+                                (rouletteState.isRunning && !seatData.assignedStudentId && seatData.isUsable) ?
+                                () => setManuallySelectedSeatIdForRoulette(seatId) : undefined
+                              }
+                              isHighlighted={isHighlighted || isManuallySelected}
+                              isConfigMode={false}
+                              displayMode='roulette'
+                              isDragDisabled={true}
                             />
                         </Box>
                       </Grid>
@@ -662,7 +746,7 @@ const RouletteDisplay: React.FC = () => {
         <Button
           variant="outlined"
           color="secondary"
-          onClick={() => setAppPhase('relation')} // 前のフェーズに戻る
+          onClick={() => setAppPhase('fixedSeat')}
           disabled={rouletteState.isRunning}
         >
           前の設定に戻る
@@ -671,7 +755,7 @@ const RouletteDisplay: React.FC = () => {
           variant="contained"
           size="large"
           onClick={() => setAppPhase('chart')}
-          disabled={rouletteState.isRunning || !allStudentsAssigned} // 全員割り当てられていなければ無効
+          disabled={rouletteState.isRunning || !allStudentsAssigned}
           startIcon={<DoneAllIcon />}
         >
           座席表へ
