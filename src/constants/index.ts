@@ -21,6 +21,7 @@ import type { SvgIconProps } from '@mui/material';
 export const AppPhaseConstants: Record<AppPhase, AppPhase> = {
   input: 'input',
   config: 'config',
+  fixedSeat: 'fixedSeat', // 固定座席割り当てのフェーズ
   relation: 'relation',
   roulette: 'roulette',
   chart: 'chart',
@@ -34,6 +35,7 @@ export const AppPhaseConstants: Record<AppPhase, AppPhase> = {
 export const AppPhaseTitles: Record<any, string> = {
   [AppPhaseConstants.input]: '生徒情報の取り込み',
   [AppPhaseConstants.config]: '座席レイアウトを設定',
+  [AppPhaseConstants.fixedSeat]: '固定座席割り当てを設定', // 固定座席割り当てのフェーズ
   [AppPhaseConstants.relation]: '関係性を設定',
   [AppPhaseConstants.roulette]: 'ルーレット',
   [AppPhaseConstants.chart]: '座席表を確認・出力',
@@ -43,6 +45,7 @@ export const AppPhaseTitles: Record<any, string> = {
 export const AppPhaseIcons: Record<any, React.ComponentType<SvgIconProps>> = {
   [AppPhaseConstants.input]: GroupIcon,
   [AppPhaseConstants.config]: ChairAltIcon,
+  [AppPhaseConstants.fixedSeat]: ManageAccountsIcon, // 固定座席割り当てのアイコン
   [AppPhaseConstants.relation]: ManageAccountsIcon,
   [AppPhaseConstants.roulette]: ShuffleIcon,
   [AppPhaseConstants.chart]: AppsIcon,

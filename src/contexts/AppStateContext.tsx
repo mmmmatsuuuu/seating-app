@@ -6,28 +6,21 @@ import React, {
 } from 'react';
 import type { ReactNode } from 'react';
 import type { Student } from '../types/Student';
-import type { SeatMap } from '../types/Seat';
+import type { SeatMapData } from '../types/Seat'; // SeatMap を SeatMapData[] に変更
 import type { RelationConfigData } from '../types/Relation';
 import type { RouletteState } from '../types/Roulette';
+import type { FixedSeatAssignment } from '../types/Seat'; // 新しく定義した型をインポート
 
 // =============================================================================
 // 型定義
 // =============================================================================
 
-// 座席データの型 (簡易版、必要に応じて詳細化)
-export interface Seat {
-  id: string;
-  row: number;
-  col: number;
-  isUsable: boolean; // 使用可能か（座れる場所か）
-  studentId: string | null; // 割り当てられている生徒のID
-}
-
 // App全体のフェーズを表す型
 export type AppPhase =
   | 'input'
   | 'config'
-  | 'relation'
+  | 'fixedSeat' // 新しい固定座席設定フェーズを追加
+  | 'relation' // 関係性設定フェーズは残すか、必要に応じて削除
   | 'roulette'
   | 'chart'
   | 'finished';
@@ -36,15 +29,16 @@ export type AppPhase =
 interface AppState {
   students: Student[];
   setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
-  seatMap: SeatMap;
-  setSeatMap: React.Dispatch<React.SetStateAction<SeatMap>>;
+  seatMap: SeatMapData[]; // SeatMap を SeatMapData[] に変更
+  setSeatMap: React.Dispatch<React.SetStateAction<SeatMapData[]>>; // SeatMap を SeatMapData[] に変更
   appPhase: AppPhase;
   setAppPhase: React.Dispatch<React.SetStateAction<AppPhase>>;
   rouletteState: RouletteState;
   setRouletteState: React.Dispatch<React.SetStateAction<RouletteState>>;
   relationConfig: RelationConfigData[];
   setRelationConfig: React.Dispatch<React.SetStateAction<RelationConfigData[]>>;
-  // TODO: 他のグローバルステート
+  fixedSeatAssignments: FixedSeatAssignment[]; // 新しい固定座席割り当ての状態
+  setFixedSeatAssignments: React.Dispatch<React.SetStateAction<FixedSeatAssignment[]>>; // 新しい固定座席割り当てのセッター
 }
 
 // AppStateContext の作成
@@ -60,7 +54,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
   children,
 }) => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [seatMap, setSeatMap] = useState<SeatMap>([]);
+  const [seatMap, setSeatMap] = useState<SeatMapData[]>([]); // SeatMap を SeatMapData[] に変更
   const [appPhase, setAppPhase] = useState<AppPhase>('input');
   const [rouletteState, setRouletteState] = useState<RouletteState>({
     isRunning: false,
@@ -70,45 +64,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
     isStopped: false, // ルーレットが一時停止中か
   });
   const [relationConfig, setRelationConfig] = useState<RelationConfigData[]>([]);
-
-  // students のセッターをラップして isAssigned, assignedSeatId を初期化/更新
-  // const setStudents = useCallback((newStudents: Student[]) => {
-  //   // 既存の割り当て状態を考慮しつつ、新しい生徒リストをセット
-  //   setStudentsState(prevStudents => {
-  //     return newStudents.map(newStudent => {
-  //       const existingStudent = prevStudents.find(s => s.id === newStudent.id);
-  //       return {
-  //         ...newStudent,
-  //         isAssigned: existingStudent ? existingStudent.isAssigned : false,
-  //         assignedSeatId: existingStudent ? existingStudent.assignedSeatId : null,
-  //       };
-  //     });
-  //   });
-  // }, []);
-  // const setStudents = useCallback((newStudents: Student[]) => {
-  //   setStudentsState(newStudents);
-  // }, []); // 依存配列は空でOK、setStudentsStateは安定しているため
-
-  // seatMap のセッターをラップして assignedStudentId を初期化/更新
-  // const setSeatMap = useCallback((newSeatMap: SeatMap) => {
-  //   // 座席マップがリセットされる場合、生徒の割り当て状態もリセット
-  //   // ただし、ルーレットフェーズ以外での変更の場合は、既存の割り当てを維持する必要がある
-  //   setSeatMapState(prevMap => {
-  //       return newSeatMap.map(newSeat => {
-  //           const existingSeat = prevMap.find(s => s.seatId === newSeat.seatId);
-  //           return {
-  //               ...newSeat,
-  //               // 基本的に、座席マップ設定フェーズで変更されたisUsableのみを反映
-  //               // assignedStudentId はルーレットフェーズで更新される
-  //               assignedStudentId: existingSeat ? existingSeat.assignedStudentId : null,
-  //           };
-  //       });
-  //   });
-  // }, []);
-  // const setSeatMap = useCallback((newSeatMap: SeatMap) => {
-  //   setSeatMapState(newSeatMap);
-  // }, []); // 依存配列は空でOK、setSeatMapStateは安定しているため
-
+  // 新しい固定座席割り当ての状態を初期化
+  const [fixedSeatAssignments, setFixedSeatAssignments] = useState<FixedSeatAssignment[]>([]);
 
   const value = useMemo(
     () => ({
@@ -122,6 +79,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
       setRouletteState,
       relationConfig,
       setRelationConfig,
+      fixedSeatAssignments, // useMemo の依存配列に追加
+      setFixedSeatAssignments, // useMemo の依存配列に追加
     }),
     [
       students,
@@ -134,6 +93,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
       setRouletteState,
       relationConfig,
       setRelationConfig,
+      fixedSeatAssignments, // useMemo の依存配列に追加
+      setFixedSeatAssignments, // useMemo の依存配列に追加
     ]
   );
 
@@ -151,4 +112,3 @@ export const useAppState = () => {
   }
   return context;
 };
-
