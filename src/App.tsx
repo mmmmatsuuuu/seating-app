@@ -7,7 +7,6 @@ import OutputPanel from "./components/Output/OutputPanel";
 
 import StudentInput from "./components/Student/StudentInput"; // フェーズ 1
 import SeatConfig from "./components/Config/SeatConfig";
-import RelationConfig from "./components/Config/RelationConfig";
 import FixedSeatConfig from "./components/Config/FixedSeatConfig";
 import RouletteDisplay from "./components/Roulette/RouletteDisplay";
 import SeatingChart from "./components/Chart/SeatingChart";
@@ -16,7 +15,6 @@ import SeatingChart from "./components/Chart/SeatingChart";
 import { Typography, Box } from "@mui/material";
 import type { SeatMapData } from "./types/Seat";
 import type { Student } from "./types/Student";
-import type { RelationConfigData } from "./types/Relation";
 import type { FixedSeatAssignment } from "./types/Seat";
 
 function AppContent() {
@@ -24,7 +22,6 @@ function AppContent() {
     students, setStudents,
     seatMap, setSeatMap,
     appPhase, setAppPhase,
-    relationConfig, setRelationConfig,
     fixedSeatAssignments, setFixedSeatAssignments,
   } = useAppState();
 
