@@ -84,7 +84,6 @@ const RouletteDisplay: React.FC = () => {
     setAppPhase,
   } = useAppState();
 
-  const rouletteIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const rouletteSpeed = 60;
   const [openResultModal, setOpenResultModal] = useState<boolean>(false);
@@ -171,10 +170,6 @@ const RouletteDisplay: React.FC = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    if (rouletteIntervalRef.current) {
-        clearInterval(rouletteIntervalRef.current);
-        rouletteIntervalRef.current = null;
-    }
 
     let lastTime = 0;
     const animate = (currentTime: number) => {
@@ -190,21 +185,12 @@ const RouletteDisplay: React.FC = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
     };
     animationFrameRef.current = requestAnimationFrame(animate);
-
-    rouletteIntervalRef.current = setInterval(() => {
-        // ここでは特に何もしない
-    }, 1000);
   }, [availableSeats, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
 
 
   // ルーレット停止ハンドラ
   const stopRoulette = useCallback(() => {
     if (!rouletteState.isRunning) return;
-
-    if (rouletteIntervalRef.current) {
-      clearInterval(rouletteIntervalRef.current);
-      rouletteIntervalRef.current = null;
-    }
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -597,8 +583,7 @@ const RouletteDisplay: React.FC = () => {
 
       <Grid container spacing={4}>
         {/* 左側: 未割り当て生徒リスト */}
-        {/* @ts-ignore */}
-        <Grid item xs={12} md={4} size={3}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <StudentList
               title={`未割り当て生徒 (${unassignedStudents.length}人)`}
@@ -664,8 +649,7 @@ const RouletteDisplay: React.FC = () => {
         </Grid>
 
         {/* 右側: 座席レイアウト表示エリア */}
-        {/* @ts-ignore */}
-        <Grid item xs={12} md={8} size={9}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
             <Typography variant="h6" gutterBottom>
               座席レイアウト
@@ -677,8 +661,7 @@ const RouletteDisplay: React.FC = () => {
               {seatMap.length > 0 && Array.from({
                 length: Math.max(...seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[1] || '0', 10)))
               }).map((_, rowIndex) => (
-                // @ts-ignore
-                <Grid container item xs={12} key={`row-${rowIndex}`} spacing={1} justifyContent="center" wrap="no-wrap">
+                <Grid container size={12} key={`row-${rowIndex}`} spacing={1} justifyContent="center" wrap="nowrap">
                   {Array.from({
                     length: Math.max(...seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[2] || '0', 10)))
                   }).map((_, colIndex) => {
@@ -690,13 +673,11 @@ const RouletteDisplay: React.FC = () => {
                     const assignedStudent = students.find(s => s.id === seatData.assignedStudentId);
 
                     const isHighlighted = rouletteState.isRunning && rouletteState.currentSelectedSeatId === seatId;
-                    // 手動選択された座席もハイライト
                     const isManuallySelected = manuallySelectedSeatIdForRoulette === seatId;
                     const highlightColor = isHighlighted || isManuallySelected ? 'warning.main' : undefined;
 
                     return (
-                      // @ts-ignore
-                      <Grid item key={seatId}>
+                      <Grid key={seatId}>
                         <Box sx={{
                             border: (isHighlighted || isManuallySelected) ? '3px solid' : '1px solid',
                             borderColor: (isHighlighted || isManuallySelected) ? highlightColor : (assignedStudent ? 'primary.dark' : 'grey.400'),

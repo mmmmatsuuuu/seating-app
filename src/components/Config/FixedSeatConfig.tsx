@@ -7,6 +7,7 @@ import {
   Grid,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemIcon,
   Avatar,
@@ -236,8 +237,7 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
 
       <Grid container spacing={4}>
         {/* 左側: 生徒リスト */}
-        {/* @ts-ignore */}
-        <Grid item xs={12} md={6} size={4}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               生徒の選択
@@ -250,13 +250,11 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
                 <ListItem><ListItemText secondary="生徒がいません。最初のステップで生徒を登録してください。" /></ListItem>
               ) : (
                 sortedStudents.map((student) => (
-                  // @ts-ignore
-                  <ListItem
+                  <ListItemButton
                     key={student.id}
-                    button
                     onClick={() => handleStudentClick(student.id)}
                     selected={selectedStudentId === student.id}
-                    disabled={assignedStudentIds.has(student.id)} // 既に割り当てられている生徒は選択不可
+                    disabled={assignedStudentIds.has(student.id)}
                     sx={{
                       '&.Mui-selected': {
                         backgroundColor: (theme) => theme.palette.primary.light + ' !important',
@@ -270,7 +268,7 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
                       <Avatar>{student.number}</Avatar>
                     </ListItemIcon>
                     <ListItemText primary={`${student.name}`} />
-                  </ListItem>
+                  </ListItemButton>
                 ))
               )}
             </List>
@@ -278,8 +276,7 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
         </Grid>
 
         {/* 右側: 座席グリッド (SeatMapChart を使用) */}
-        {/* @ts-ignore */}
-        <Grid item xs={12} md={6} size={8}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               座席の選択

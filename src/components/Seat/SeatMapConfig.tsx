@@ -144,8 +144,7 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
       {/* 行数・列数入力エリア */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          {/* @ts-ignore */}
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               label="行数 (Rows)"
               type="number"
@@ -157,8 +156,7 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
               helperText={!!errorMessage && errorMessage.includes('行数') ? errorMessage : ' '}
             />
           </Grid>
-          {/* @ts-ignore */}
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               label="列数 (Columns)"
               type="number"
@@ -197,8 +195,7 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
       <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
         <Grid container spacing={1} justifyContent="center" wrap="wrap">
           {Array.from({ length: rows }).map((_, rowIndex) => (
-            // @ts-ignore
-            <Grid container item xs={12} key={`row-${rowIndex}`} spacing={1} justifyContent="center" wrap="nowrap">
+            <Grid container size={12} key={`row-${rowIndex}`} spacing={1} justifyContent="center" wrap="nowrap">
               {Array.from({ length: cols }).map((_, colIndex) => {
                 const seatId = `R${rowIndex + 1}C${colIndex + 1}`;
                 const seatData = currentEditedSeatMap.find(s => s.seatId === seatId);
@@ -206,22 +203,21 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
                   seatId: seatId,
                   assignedStudentId: null,
                   isUsable: true,
-                  row: rowIndex + 1, // 行番号を1から始める
-                  col: colIndex + 1, // 列番号を1から始める
+                  row: rowIndex + 1,
+                  col: colIndex + 1,
                 };
 
                 return (
-                  // @ts-ignore
-                  <Grid item key={seatId}>
+                  <Grid key={seatId}>
                     <Seat
                       seatId={seatId}
                       seatData={displaySeatData}
                       assignedStudent={null}
                       onClick={handleSeatClick}
-                      isConfigMode={true} // このコンポーネントでは常に設定モード
-                      isHighlighted={false} // ハイライトは設定モードでは不要
-                      displayMode="config" // 表示モードを設定モードに
-                      isDragDisabled={true} // ドラッグは設定モードでは無効
+                      isConfigMode={true}
+                      isHighlighted={false}
+                      displayMode="config"
+                      isDragDisabled={true}
                     />
                   </Grid>
                 );

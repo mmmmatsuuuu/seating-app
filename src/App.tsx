@@ -81,18 +81,6 @@ function AppContent() {
                     // キャンセル時の処理 (必要に応じて実装)
                   }}
                 />;
-      // case AppPhaseConstants.relation:
-      //   return  <RelationConfig 
-      //             students={students}
-      //             currentRelationConfig={relationConfig}
-      //             onConfigFinished={(updateRelationConfig: RelationConfigData[]) => {
-      //               setRelationConfig(updateRelationConfig);
-      //               setAppPhase(AppPhaseConstants.roulette); // 関係性設定後はルーレットフェーズへ進む
-      //             }}
-      //             onCancel={() => {
-      //               // キャンセル時の処理 (必要に応じて実装)
-      //             }}
-      //           />;
       case AppPhaseConstants.roulette:
         return  <RouletteDisplay />;
       case AppPhaseConstants.chart:
