@@ -10,52 +10,21 @@
 
 ## 未実装・無効化中の機能
 
-### 🔴 RelationConfig（関係性設定）の再有効化
+### 🔴 RelationConfig（関係性設定）の新規実装
 
 **現状**:  
-`App.tsx` のフェーズスイッチで `case AppPhaseConstants.relation` がコメントアウトされており、ユーザーが UI から設定できない状態。  
-`Layout.tsx` のフェーズナビゲーションでも `"relation"` がコメントアウトされている。  
-ただし、ルーレットのロジック（`RouletteDisplay.tsx` の `checkRelationConstraints`）は実装済みのため、データを直接投入すれば機能する。
+旧実装（`RelationConfig.tsx`）は UI から切り離した状態で残存している。  
+ルーレットの制約チェックロジック（`RouletteDisplay.tsx` の `checkRelationConstraints`）と `AppStateContext` の `relationConfig` 状態は維持済み。
 
-**対応方針**:
-1. `App.tsx` の `case AppPhaseConstants.relation` のコメントアウトを解除
-2. `Layout.tsx` のフェーズナビゲーション配列に `"relation"` を追加
-3. フェーズ遷移を `fixedSeat → relation → roulette` に変更（`FixedSeatConfig` の `onConfigFinished` を更新）
-4. `RelationConfig.tsx` の実装が正しく動作するか確認・修正
+**対応方針**:  
+旧実装を参照せず、仕様を固め直してから新規に実装する。  
+実装後は `App.tsx` のフェーズスイッチと `Layout.tsx` のナビゲーション配列に組み込む。
 
 ---
 
 ## 既知の技術的負債
 
-### 🟡 MUI Grid の @ts-ignore
-
-**箇所**: `RouletteDisplay.tsx`, `FixedSeatConfig.tsx`, `OutputPanel.tsx` 等の複数箇所  
-**原因**: MUI v7 の `Grid` が新しい `size` prop API に移行したが、型定義が合わない  
-**対応**: MUI v7 のドキュメントに従い `Grid2` コンポーネントまたは正しい型アサーションに書き換える
-
-### 🟡 alert() の使用
-
-**箇所**: `OutputPanel.tsx`（PDF 出力・クリップボードコピーの成否通知）、`Layout.tsx`（データ保存・読み込みの通知）  
-**問題**: `alert()` は UI をブロックし、スタイルも統一できない  
-**対応**: MUI の `Snackbar` + `Alert` コンポーネントによる通知に置き換える
-
-### 🟡 クリップボード API の非推奨
-
-**箇所**: `OutputPanel.tsx` の `handleCopyToClipboard`  
-**問題**: `document.execCommand('copy')` は非推奨 API  
-**対応**: `navigator.clipboard.writeText()` に移行する（HTTPS 環境が必要）
-
-### 🟡 setInterval の不要な残存
-
-**箇所**: `RouletteDisplay.tsx` の `startRoulette`  
-**問題**: `requestAnimationFrame` でアニメーションを制御しているにもかかわらず、何もしない `setInterval` が残っている  
-**対応**: 削除する
-
-### 🟢 ローカルストレージのキーの不整合
-
-**箇所**: `constants/index.ts` の `LOCAL_STORAGE_KEY = 'seatingAppData'` と `localStorage.ts` の `STORAGE_KEY = 'seatingArrangementAppData'` が異なる  
-**問題**: constants のキーが実際には使われていない  
-**対応**: どちらかに統一する
+（なし）
 
 ---
 
