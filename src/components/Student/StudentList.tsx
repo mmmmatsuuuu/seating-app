@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemIcon,
   Avatar,
@@ -102,56 +103,50 @@ const StudentList: React.FC<StudentListProps> = ({
             <ListItemText secondary={emptyMessage} sx={{ textAlign: 'center', py: 2 }} />
           </ListItem>
         ) : (
-          sortedStudents.map((student) => (
-            // @ts-ignore
-            <ListItem
-              key={student.id}
-              // onStudentClick が設定されている場合のみボタンとして機能させる
-              button={!!onStudentClick}
-              onClick={onStudentClick ? () => handleClick(student.id) : undefined}
-              selected={selectedStudentIds.includes(student.id)}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: (theme) => theme.palette.primary.light + ' !important',
-                  '&:hover': {
-                    backgroundColor: (theme) => theme.palette.primary.light,
-                  },
+          sortedStudents.map((student) => {
+            const selectedSx = {
+              '&.Mui-selected': {
+                backgroundColor: (theme: import('@mui/material/styles').Theme) => theme.palette.primary.light + ' !important',
+                '&:hover': {
+                  backgroundColor: (theme: import('@mui/material/styles').Theme) => theme.palette.primary.light,
                 },
-                cursor: onStudentClick ? 'pointer' : 'default', // クリック可能ならポインター
-              }}
-            >
-              <ListItemIcon>
-                <Avatar>{student.number}</Avatar>
-              </ListItemIcon>
-              <ListItemText
-                primary={`${student.name}`}
-              />
-              {type === 'default' && student.kana && 
-                <ListItemText
-                  secondary={`(${student.kana})`}
-                  sx={{ ml: 2, color: 'text.secondary' }}
-                />
-              }
-              {type === 'default' && student.info1 && 
-                <ListItemText
-                  secondary={`(${student.info1})`}
-                  sx={{ ml: 2, color: 'text.secondary' }}
-                />
-              }
-              {type === 'default' && student.info2 && 
-                <ListItemText
-                  secondary={`(${student.info2})`}
-                  sx={{ ml: 2, color: 'text.secondary' }}
-                />
-              }
-              {type === 'default' && student.info3 && 
-                <ListItemText
-                  secondary={`(${student.info3})`}
-                  sx={{ ml: 2, color: 'text.secondary' }}
-                />
-              }
-            </ListItem>
-          ))
+              },
+            };
+            const content = (
+              <>
+                <ListItemIcon>
+                  <Avatar>{student.number}</Avatar>
+                </ListItemIcon>
+                <ListItemText primary={`${student.name}`} />
+                {type === 'default' && student.kana &&
+                  <ListItemText secondary={`(${student.kana})`} sx={{ ml: 2, color: 'text.secondary' }} />
+                }
+                {type === 'default' && student.info1 &&
+                  <ListItemText secondary={`(${student.info1})`} sx={{ ml: 2, color: 'text.secondary' }} />
+                }
+                {type === 'default' && student.info2 &&
+                  <ListItemText secondary={`(${student.info2})`} sx={{ ml: 2, color: 'text.secondary' }} />
+                }
+                {type === 'default' && student.info3 &&
+                  <ListItemText secondary={`(${student.info3})`} sx={{ ml: 2, color: 'text.secondary' }} />
+                }
+              </>
+            );
+            return onStudentClick ? (
+              <ListItemButton
+                key={student.id}
+                onClick={() => handleClick(student.id)}
+                selected={selectedStudentIds.includes(student.id)}
+                sx={selectedSx}
+              >
+                {content}
+              </ListItemButton>
+            ) : (
+              <ListItem key={student.id} sx={selectedSx}>
+                {content}
+              </ListItem>
+            );
+          })
         )}
       </List>
     </Box>

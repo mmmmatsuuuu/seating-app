@@ -1,6 +1,6 @@
 // src/Layout/Layout.tsx
 import React, { useState, useCallback } from "react";
-import { AppBar, Toolbar, Typography, Container, Box, Button, ButtonGroup, Tooltip, IconButton, Menu, MenuItem } from "@mui/material";
+import { AppBar, Toolbar, Typography, Container, Box, Button, ButtonGroup, Tooltip, IconButton, Menu, MenuItem, Snackbar, Alert } from "@mui/material";
 import { saveAppData, loadAppData, clearAppData } from "../../utils/localStorage";
 import type { AppPersistedState } from "../../utils/localStorage";
 import MoreVertIcon from '@mui/icons-material/MoreVert'; // メニューアイコン
@@ -32,9 +32,13 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
     setFixedSeatAssignments,
   } = useAppState();
 
-  // メニューの状態管理
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '', severity: 'info' });
+
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -44,7 +48,6 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
     setAnchorEl(null);
   };
 
-  // 全データをLocalStorageに保存するハンドラ
   const handleSaveData = useCallback(() => {
     try {
       const dataToSave: AppPersistedState = {
@@ -53,48 +56,45 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
         appPhase,
         rouletteState,
         relationConfig,
-        fixedSeatAssignments, // 新しい固定座席割り当てを保存
+        fixedSeatAssignments,
       };
-      saveAppData(dataToSave); // LocalStorageにデータを保存
-      alert('データを保存しました！');
+      saveAppData(dataToSave);
+      showSnackbar('データを保存しました！', 'success');
     } catch (error) {
       console.error('データの保存中にエラーが発生しました:', error);
-      alert('データの保存に失敗しました。');
+      showSnackbar('データの保存に失敗しました。', 'error');
     } finally {
-      handleCloseMenu(); // メニューを閉じる
+      handleCloseMenu();
     }
-  }, [students, seatMap, appPhase, rouletteState, relationConfig]);
+  }, [students, seatMap, appPhase, rouletteState, relationConfig, fixedSeatAssignments, showSnackbar]);
 
-  // LocalStorageからデータを読み込むハンドラ
   const handleLoadData = useCallback(() => {
-    handleCloseMenu(); // メニューを閉じる
+    handleCloseMenu();
     if (!window.confirm('現在のデータは失われますが、データを読み込みますか？')) {
       return;
     }
     try {
-      const loadedData = loadAppData(); // ヘルパー関数を呼び出す
+      const loadedData = loadAppData();
       if (loadedData) {
         setStudents(loadedData.students);
         setSeatMap(loadedData.seatMap);
         setAppPhase(loadedData.appPhase);
         setRouletteState(loadedData.rouletteState);
         setRelationConfig(loadedData.relationConfig);
-        setFixedSeatAssignments(loadedData.fixedSeatAssignments); // 新しい固定座席割り当てをセット
-        alert('データを読み込みました！');
+        setFixedSeatAssignments(loadedData.fixedSeatAssignments);
+        showSnackbar('データを読み込みました！', 'success');
       } else {
-        alert('保存されたデータがありません。');
+        showSnackbar('保存されたデータがありません。', 'info');
       }
     } catch (error) {
-      // loadAppData 内でエラーは捕捉されるが、必要ならここでも処理
-      alert('データの読み込みに失敗しました。データ形式が不正な可能性があります。');
+      showSnackbar('データの読み込みに失敗しました。データ形式が不正な可能性があります。', 'error');
     }
-  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig]);
+  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig, setFixedSeatAssignments, showSnackbar]);
 
-  // 全データをリセットするハンドラ
   const handleResetData = useCallback(() => {
-    handleCloseMenu(); // メニューを閉じる
+    handleCloseMenu();
     try {
-      clearAppData(); // ヘルパー関数を呼び出す
+      clearAppData();
       setStudents([]);
       setSeatMap([]);
       setAppPhase('input');
@@ -106,20 +106,18 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
         isStopped: false,
       });
       setRelationConfig([]);
-      setFixedSeatAssignments([]); // 新しい固定座席割り当てをリセット
-      alert('全てのデータがリセットされました。');
+      setFixedSeatAssignments([]);
+      showSnackbar('全てのデータがリセットされました。', 'success');
     } catch (error) {
-      // clearAppData 内でエラーは捕捉されるが、必要ならここでも処理
-      alert('データのリセットに失敗しました。');
+      showSnackbar('データのリセットに失敗しました。', 'error');
     }
-  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig]);
+  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig, setFixedSeatAssignments, showSnackbar]);
 
 
   const appPhases: AppPhase[] = [
     "input",
     "config",
     "fixedSeat",
-    // "relation",
     "roulette",
     "chart",
     "finished",
@@ -200,6 +198,17 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
           {children}
         </Box>
       </Container>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -9,6 +9,8 @@ import {
   Typography,
   Grid,
   Tooltip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -35,7 +37,6 @@ interface StudentOutputFields {
 const OutputPanel: React.FC = () => {
   const { students, seatMap } = useAppState();
 
-  // チェックボックスの状態管理
   const [selectedFields, setSelectedFields] = useState<StudentOutputFields>({
     id: false,
     number: true, // デフォルトで出席番号を表示
@@ -45,8 +46,12 @@ const OutputPanel: React.FC = () => {
     info2: false,
     info3: false,
   });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '', severity: 'info' });
 
-  // チェックボックスの変更ハンドラ
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
   const handleFieldChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setSelectedFields({
@@ -99,55 +104,46 @@ const OutputPanel: React.FC = () => {
     return tableData;
   }, [students, seatMap, selectedFields]);
 
-  // PDF出力ハンドラ
   const handleGeneratePdf = useCallback(async () => {
     if (!hasSelectedFields) {
-      // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-      alert('表示したい項目を選択してください。');
+      showSnackbar('表示したい項目を選択してください。', 'warning');
       return;
     }
 
-    // main-seating-chart-container の内容をPDF化します。
-    // このdivには、SeatMapChartと詳細データテーブルの両方が含まれます。
     const input = document.getElementById('main-seating-chart-container');
-
     if (!input) {
-      // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-      alert('PDF出力元の要素が見つかりません。開発者ツールでIDを確認してください。');
+      showSnackbar('PDF出力元の要素が見つかりません。', 'error');
       return;
     }
 
     try {
       const canvas = await html2canvas(input, {
-        scale: 2, // 高解像度でキャプチャ
-        useCORS: true, // 外部画像などがある場合にCORSを許可
-        logging: true, // デバッグ用にログを出力
+        scale: 2,
+        useCORS: true,
+        logging: true,
       });
       const imgData = canvas.toDataURL('image/jpeg');
       const pdf = new jsPDF({
-        orientation: 'landscape', // 横向き
+        orientation: 'landscape',
         unit: 'mm',
         format: 'a4',
       });
 
-      const imgWidth = 297; // A4横の幅
+      const imgWidth = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       const margin = 10;
       pdf.addImage(imgData, 'PNG', margin, margin, imgWidth - 2 * margin, imgHeight - 2 * margin);
       pdf.save('seat-arrangement-chart.pdf');
     } catch (error) {
       console.error('PDF生成中にエラーが発生しました:', error);
-      // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-      alert('PDFの生成に失敗しました。');
+      showSnackbar('PDFの生成に失敗しました。', 'error');
     }
-  }, [hasSelectedFields]);
+  }, [hasSelectedFields, showSnackbar]);
 
 
-  // クリップボードにコピーするハンドラ (CSV形式)
-  const handleCopyToClipboard = useCallback(() => {
+  const handleCopyToClipboard = useCallback(async () => {
     if (!hasSelectedFields) {
-      // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-      alert('表示したい項目を選択してください。');
+      showSnackbar('表示したい項目を選択してください。', 'warning');
       return;
     }
 
@@ -155,7 +151,6 @@ const OutputPanel: React.FC = () => {
     const maxCol = Math.max(...seatMap.map((seat) => seat.col));
     let csvContent = '';
 
-    // 選択されたフィールドのキーのリストと、そのラベルのマップ
     const activeFieldKeys: { key: keyof StudentOutputFields; label: string }[] = [];
     if (selectedFields.id) activeFieldKeys.push({ key: 'id', label: '生徒ID' });
     if (selectedFields.number) activeFieldKeys.push({ key: 'number', label: '出席番号' });
@@ -165,13 +160,9 @@ const OutputPanel: React.FC = () => {
     if (selectedFields.info2) activeFieldKeys.push({ key: 'info2', label: '情報2' });
     if (selectedFields.info3) activeFieldKeys.push({ key: 'info3', label: '情報3' });
 
-    // 各座席表の行に対応するCSVブロックを生成
     for (let r = 1; r <= maxRow; r++) {
-
-      // 各項目ごとのデータ行を生成 (例: 出席番号	S1_番号	S2_番号)
       activeFieldKeys.forEach(field => {
-        let fieldDataRow: (string | number | null)[] = [];
-        fieldDataRow.push(field.label); // 項目名（例: 出席番号）
+        const fieldDataRow: (string | number | null)[] = [field.label];
 
         for (let c = 1; c <= maxCol; c++) {
           const seat = seatMap.find((s) => s.row === r && s.col === c && s.isUsable);
@@ -179,14 +170,14 @@ const OutputPanel: React.FC = () => {
             ? students.find((s) => s.id === seat.assignedStudentId)
             : null;
 
-          if (seat) { // 使用可能な座席
-            if (student) { // 生徒が割り当てられている場合
-              // @ts-ignore
-              fieldDataRow.push(student[field.key] ?? ''); // 該当フィールドの値
-            } else { // 空席の場合
+          if (seat) {
+            if (student) {
+              const value = student[field.key as 'id' | 'number' | 'name' | 'kana' | 'info1' | 'info2' | 'info3'];
+              fieldDataRow.push(value ?? '');
+            } else {
               fieldDataRow.push('空席');
             }
-          } else { // 使用不可な座席
+          } else {
             fieldDataRow.push('使用不可');
           }
         }
@@ -194,32 +185,14 @@ const OutputPanel: React.FC = () => {
       });
     }
 
-    // document.execCommand('copy') を使用してクリップボードにコピー
-    const textarea = document.createElement('textarea');
-    textarea.value = csvContent;
-    textarea.style.position = 'fixed'; // 画面外に配置
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
     try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-        alert('座席データがクリップボードにコピーされました！\n表計算ソフトに貼り付けてください。');
-      } else {
-        console.error('Fallback: クリップボードへのコピーに失敗しました (execCommand)');
-        // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-        alert('クリップボードへのコピーに失敗しました。ブラウザがこの操作を許可していません。');
-      }
+      await navigator.clipboard.writeText(csvContent);
+      showSnackbar('座席データがクリップボードにコピーされました！表計算ソフトに貼り付けてください。', 'success');
     } catch (err) {
-      console.error('Fallback: クリップボードへのコピー中にエラーが発生しました:', err);
-      // NOTE: alert() は UI をブロックするため、本番環境ではカスタムモーダルなどに置き換えるべきです。
-      alert('クリップボードへのコピーに失敗しました。');
-    } finally {
-      document.body.removeChild(textarea); // 一時的なtextareaを削除
+      console.error('クリップボードへのコピーに失敗しました:', err);
+      showSnackbar('クリップボードへのコピーに失敗しました。', 'error');
     }
-  }, [hasSelectedFields, getOutputTableData, selectedFields]);
+  }, [hasSelectedFields, seatMap, students, selectedFields, showSnackbar]);
 
   return (
     <>
@@ -232,8 +205,7 @@ const OutputPanel: React.FC = () => {
         <Typography variant="subtitle1" sx={{ mb: 1 }}>表示項目を選択:</Typography>
         <Grid container spacing={1}>
           {Object.entries(selectedFields).map(([key, value]) => (
-            // @ts-ignore
-            <Grid item xs={4} sm={2} key={key}>
+            <Grid size={{ xs: 4, sm: 2 }} key={key}>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -247,7 +219,7 @@ const OutputPanel: React.FC = () => {
                   key === 'number' ? '出席番号' :
                   key === 'name' ? '名前' :
                   key === 'kana' ? 'フリガナ' :
-                  `情報${key.slice(-1)}` // info1, info2, info3
+                  `情報${key.slice(-1)}`
                 }
               />
             </Grid>
@@ -350,6 +322,17 @@ const OutputPanel: React.FC = () => {
           </Typography>
         )}
       </Paper>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

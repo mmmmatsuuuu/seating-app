@@ -58,11 +58,6 @@ export const AppPhaseIcons: Record<any, React.ComponentType<SvgIconProps>> = {
 // =============================================================================
 
 /**
- * ローカルストレージにデータを保存する際のキー名です。
- */
-export const LOCAL_STORAGE_KEY = 'seatingAppData';
-
-/**
  * 座席表のデフォルトの行数です。
  */
 export const DEFAULT_SEAT_ROWS = 6;
