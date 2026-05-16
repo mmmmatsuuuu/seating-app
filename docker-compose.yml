@@ -12,7 +12,7 @@ services:
     volumes:
       - .:/app
       # node_modulesディレクトリはコンテナ内で管理するため、ボリュームマウントから除外する
-      # - /app/node_modules
+      - /app/node_modules
     # コンテナの内部ポート (5173) をホストマシンのポート (5173) にマッピング
     # プロジェクト初期化後は開発サーバーにアクセスするために必要
     ports:
@@ -22,4 +22,4 @@ services:
     tty: true
     # コンテナ起動時に実行するデフォルトコマンドは指定しない
     # コマンドは docker compose run または docker compose up で指定する
-    # command: ["npm", "run", "dev", "--", "--host"] # この行を追加または修正
+    command: ["npm", "run", "dev", "--", "--host"]

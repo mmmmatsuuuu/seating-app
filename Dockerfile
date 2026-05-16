@@ -12,11 +12,8 @@ WORKDIR /app
 # 最終的な開発用としては、npm run dev -- --host を指定する想定
 # CMD ["tail", "-f", "/dev/null"] # コンテナを起動したままにする例
 
-# プロジェクト初期化後に依存関係をインストールする際にキャッシュを効かせるため、
-# ここで package*.json を先にコピーしておく（初期化前は存在しないが、手順として残しておく）
-# COPY package*.json ./
-
-# 後でプロジェクト初期化コマンドを実行し、ファイルが生成された後に npm install を行う
+COPY package*.json ./
+RUN npm install
 
 # Viteの開発サーバーがリッスンするポートを公開
 EXPOSE 5173
