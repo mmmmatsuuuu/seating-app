@@ -27,10 +27,8 @@ import Seat from '../Seat/Seat';
 
 import type { Student } from '../../types/Student';
 import type { SeatMapData } from '../../types/Seat';
-import type { RelationConfigData } from '../../types/Relation';
 import { useAppState } from '../../contexts/AppStateContext';
 import type { TransitionProps } from '@mui/material/transitions';
-import { RelationTypeConstants } from '../../constants';
 import type { RouletteState } from '../../types/Roulette';
 
 const Transition = React.forwardRef(function Transition(
@@ -40,19 +38,6 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const getAdjacentSeatIds = (seatId: string, seatMap: SeatMapData[]): string[] => {
-  const match = seatId.match(/R(\d+)C(\d+)/);
-  if (!match) return [];
-  const row = parseInt(match[1], 10);
-  const col = parseInt(match[2], 10);
-  const potentialAdjacents = [
-    `R${row - 1}C${col}`,
-    `R${row + 1}C${col}`,
-    `R${row}C${col - 1}`,
-    `R${row}C${col + 1}`,
-  ];
-  return potentialAdjacents.filter(adjId => seatMap.some(s => s.seatId === adjId) && adjId !== seatId);
-};
 
 const BULK_SPIN_MS = 800;
 const BULK_CONFIRM_MS = 300;
@@ -65,7 +50,6 @@ const RouletteDisplay: React.FC = () => {
     setSeatMap,
     rouletteState,
     setRouletteState,
-    relationConfig,
     fixedSeatAssignments,
     setAppPhase,
   } = useAppState();
@@ -98,27 +82,6 @@ const RouletteDisplay: React.FC = () => {
     }
   }, [unassignedStudents, rouletteState.currentAssigningStudent, rouletteState.isStopped, setRouletteState]);
 
-  const checkRelationConstraints = useCallback((
-    targetSeatId: string,
-    assigningStudent: Student | null,
-    currentSeatMap: SeatMapData[],
-    allStudents: Student[],
-    relations: RelationConfigData[]
-  ): boolean => {
-    if (!assigningStudent) return false;
-    const adjacentSeats = getAdjacentSeatIds(targetSeatId, currentSeatMap);
-    for (const rel of relations) {
-      if (rel.studentId1 === assigningStudent.id || rel.studentId2 === assigningStudent.id) {
-        const partnerId = rel.studentId1 === assigningStudent.id ? rel.studentId2 : rel.studentId1;
-        const partnerStudent = allStudents.find(s => s.id === partnerId);
-        if (!partnerStudent || !partnerStudent.isAssigned || !partnerStudent.assignedSeatId) continue;
-        const partnerSeatId = partnerStudent.assignedSeatId;
-        if (rel.type === RelationTypeConstants.CO_SEAT && !adjacentSeats.includes(partnerSeatId)) return false;
-        if (rel.type === RelationTypeConstants.NO_CO_SEAT && adjacentSeats.includes(partnerSeatId)) return false;
-      }
-    }
-    return true;
-  }, []);
 
   const startRoulette = useCallback(() => {
     if (availableSeats.length === 0) { setLocalErrorMessage('割り当て可能な空席がありません。'); return; }
@@ -162,7 +125,6 @@ const RouletteDisplay: React.FC = () => {
     }
 
     let finalChosenSeatId: string | null = null;
-    let isValidFinalSeat = false;
 
     const fixedAssignmentForStudent = fixedSeatAssignments.find(fsa => fsa.studentId === selectedStudentForAssignment.id);
 
@@ -175,48 +137,20 @@ const RouletteDisplay: React.FC = () => {
         setLocalErrorMessage(`生徒 ${selectedStudentForAssignment.name} の固定座席 (${fixedSeatId}) は既に他の生徒に割り当てられています。`);
       } else {
         finalChosenSeatId = fixedSeatId;
-        isValidFinalSeat = true;
       }
-    } else if (manuallySelectedSeatIdForRoulette) {
-      const selectedSeatData = availableSeats.find(seat => seat.seatId === manuallySelectedSeatIdForRoulette);
-      if (selectedSeatData) {
-        if (checkRelationConstraints(manuallySelectedSeatIdForRoulette, selectedStudentForAssignment, seatMap, students, relationConfig)) {
-          finalChosenSeatId = manuallySelectedSeatIdForRoulette;
-          isValidFinalSeat = true;
-        } else {
-          setLocalErrorMessage(`選択された座席 (${manuallySelectedSeatIdForRoulette}) は関係性制約を満たしません。`);
-        }
-      } else {
-        setLocalErrorMessage(`選択された座席 (${manuallySelectedSeatIdForRoulette}) は利用できません。`);
-      }
+    } else if (manuallySelectedSeatIdForRoulette && availableSeats.find((s: SeatMapData) => s.seatId === manuallySelectedSeatIdForRoulette)) {
+      finalChosenSeatId = manuallySelectedSeatIdForRoulette;
+    } else if (rouletteState.currentSelectedSeatId && availableSeats.find((s: SeatMapData) => s.seatId === rouletteState.currentSelectedSeatId)) {
+      finalChosenSeatId = rouletteState.currentSelectedSeatId;
+    } else if (availableSeats.length > 0) {
+      finalChosenSeatId = availableSeats[Math.floor(Math.random() * availableSeats.length)].seatId;
     }
 
-    if (!isValidFinalSeat && rouletteState.currentSelectedSeatId) {
-      const currentRouletteSeatData = availableSeats.find(seat => seat.seatId === rouletteState.currentSelectedSeatId);
-      if (currentRouletteSeatData && checkRelationConstraints(rouletteState.currentSelectedSeatId, selectedStudentForAssignment, seatMap, students, relationConfig)) {
-        finalChosenSeatId = rouletteState.currentSelectedSeatId;
-        isValidFinalSeat = true;
-      }
-    }
-
-    if (!isValidFinalSeat) {
-      let attempts = 0;
-      const maxAttempts = 100;
-      const shuffledAvailableSeats = [...availableSeats].sort(() => Math.random() - 0.5);
-      while (!isValidFinalSeat && attempts < maxAttempts) {
-        const potentialSeat = shuffledAvailableSeats[attempts % shuffledAvailableSeats.length];
-        if (potentialSeat?.seatId && checkRelationConstraints(potentialSeat.seatId, selectedStudentForAssignment, seatMap, students, relationConfig)) {
-          finalChosenSeatId = potentialSeat.seatId;
-          isValidFinalSeat = true;
-        }
-        attempts++;
-      }
-      if (!isValidFinalSeat || !finalChosenSeatId) {
-        setLocalErrorMessage('関係性を満たす空席が見つかりませんでした。手動で割り当てるか、関係性設定を見直してください。');
-        setRouletteState(prev => ({ ...prev, isRunning: false, isStopped: true, currentSelectedSeatId: null, currentAssigningStudent: null }));
-        setManuallySelectedSeatIdForRoulette(null);
-        return;
-      }
+    if (!finalChosenSeatId) {
+      setLocalErrorMessage('割り当て可能な空席が見つかりませんでした。');
+      setRouletteState((prev: RouletteState) => ({ ...prev, isRunning: false, isStopped: true, currentSelectedSeatId: null, currentAssigningStudent: null }));
+      setManuallySelectedSeatIdForRoulette(null);
+      return;
     }
 
     const updatedSeatMap = seatMap.map(seat =>
@@ -240,7 +174,7 @@ const RouletteDisplay: React.FC = () => {
 
     setManuallySelectedSeatIdForRoulette(null);
     setOpenResultModal(true);
-  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, selectedStudentForAssignment, checkRelationConstraints, seatMap, students, relationConfig, setSeatMap, setStudents, setRouletteState, manuallySelectedSeatIdForRoulette, fixedSeatAssignments]);
+  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, selectedStudentForAssignment, seatMap, students, setSeatMap, setStudents, setRouletteState, manuallySelectedSeatIdForRoulette, fixedSeatAssignments]);
 
   const handleCloseResultModal = useCallback(() => {
     setOpenResultModal(false);
@@ -336,16 +270,14 @@ const RouletteDisplay: React.FC = () => {
       for (let i = 0; i < remainingSeats.length; i++) {
         const seat = remainingSeats[i];
         if (assignedSeatIds.has(seat.seatId)) continue;
-        if (checkRelationConstraints(seat.seatId, student, tempSeatMap, tempStudents, relationConfig)) {
-          queue.push({ studentId: student.id, seatId: seat.seatId });
-          tempSeatMap = tempSeatMap.map(s => s.seatId === seat.seatId ? { ...s, assignedStudentId: student.id } : s);
-          tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: seat.seatId } : s);
-          assignedStudentIds.add(student.id);
-          assignedSeatIds.add(seat.seatId);
-          remainingSeats.splice(i, 1);
-          assigned = true;
-          break;
-        }
+        queue.push({ studentId: student.id, seatId: seat.seatId });
+        tempSeatMap = tempSeatMap.map(s => s.seatId === seat.seatId ? { ...s, assignedStudentId: student.id } : s);
+        tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: seat.seatId } : s);
+        assignedStudentIds.add(student.id);
+        assignedSeatIds.add(seat.seatId);
+        remainingSeats.splice(i, 1);
+        assigned = true;
+        break;
       }
       if (!assigned) errors.push(student.name);
     });
@@ -443,7 +375,7 @@ const RouletteDisplay: React.FC = () => {
     };
 
     runBulkAnimation(queue, seatMap, students, rouletteState.winningHistory);
-  }, [unassignedStudents, availableSeats, seatMap, students, relationConfig, rouletteState.winningHistory, fixedSeatAssignments, setSeatMap, setStudents, setRouletteState, checkRelationConstraints, rouletteSpeed]);
+  }, [unassignedStudents, availableSeats, seatMap, students, rouletteState.winningHistory, fixedSeatAssignments, setSeatMap, setStudents, setRouletteState, rouletteSpeed]);
 
   const handleCancelBulkAssign = useCallback(() => {
     if (bulkTimeoutRef.current) clearTimeout(bulkTimeoutRef.current);

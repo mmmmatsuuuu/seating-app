@@ -21,8 +21,7 @@ import type { SvgIconProps } from '@mui/material';
 export const AppPhaseConstants: Record<AppPhase, AppPhase> = {
   input: 'input',
   config: 'config',
-  fixedSeat: 'fixedSeat', // 固定座席割り当てのフェーズ
-  relation: 'relation',
+  fixedSeat: 'fixedSeat',
   roulette: 'roulette',
   chart: 'chart',
   finished: 'finished',
@@ -35,8 +34,7 @@ export const AppPhaseConstants: Record<AppPhase, AppPhase> = {
 export const AppPhaseTitles: Record<any, string> = {
   [AppPhaseConstants.input]: '生徒情報の取り込み',
   [AppPhaseConstants.config]: '座席レイアウトを設定',
-  [AppPhaseConstants.fixedSeat]: '固定座席割り当てを設定', // 固定座席割り当てのフェーズ
-  [AppPhaseConstants.relation]: '関係性を設定',
+  [AppPhaseConstants.fixedSeat]: '固定座席割り当てを設定',
   [AppPhaseConstants.roulette]: 'ルーレット',
   [AppPhaseConstants.chart]: '座席表を確認・出力',
   [AppPhaseConstants.finished]: '完了',
@@ -45,8 +43,7 @@ export const AppPhaseTitles: Record<any, string> = {
 export const AppPhaseIcons: Record<any, React.ComponentType<SvgIconProps>> = {
   [AppPhaseConstants.input]: GroupIcon,
   [AppPhaseConstants.config]: ChairAltIcon,
-  [AppPhaseConstants.fixedSeat]: ManageAccountsIcon, // 固定座席割り当てのアイコン
-  [AppPhaseConstants.relation]: ManageAccountsIcon,
+  [AppPhaseConstants.fixedSeat]: ManageAccountsIcon,
   [AppPhaseConstants.roulette]: ShuffleIcon,
   [AppPhaseConstants.chart]: AppsIcon,
   [AppPhaseConstants.finished]: CheckCircleOutlineIcon,
@@ -83,8 +80,3 @@ export const CSV_DELIMITERS = [',', '\t', ';', '|'];
 
 // ... 今後必要になる可能性のあるその他の定数をここに追加してください ...
 
-// src/constants/index.ts
-export const RelationTypeConstants = {
-  CO_SEAT: 'co_seat',
-  NO_CO_SEAT: 'no_co_seat',
-} as const;

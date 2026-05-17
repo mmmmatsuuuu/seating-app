@@ -10,15 +10,7 @@
 
 ## 未実装・無効化中の機能
 
-### 🔴 RelationConfig（関係性設定）の新規実装
-
-**現状**:  
-旧実装（`RelationConfig.tsx`）は UI から切り離した状態で残存している。  
-ルーレットの制約チェックロジック（`RouletteDisplay.tsx` の `checkRelationConstraints`）と `AppStateContext` の `relationConfig` 状態は維持済み。
-
-**対応方針**:  
-旧実装を参照せず、仕様を固め直してから新規に実装する。  
-実装後は `App.tsx` のフェーズスイッチと `Layout.tsx` のナビゲーション配列に組み込む。
+（なし）
 
 ---
 

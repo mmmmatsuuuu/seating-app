@@ -36,7 +36,6 @@
 | `seatMap` | `SeatMapData[]` | 全座席の状態（使用可否・割り当て状況を含む） |
 | `appPhase` | `AppPhase` | 現在のアプリフェーズ |
 | `rouletteState` | `RouletteState` | ルーレット実行中の状態 |
-| `relationConfig` | `RelationConfigData[]` | 生徒間の関係性設定（現在 UI は未使用） |
 | `fixedSeatAssignments` | `FixedSeatAssignment[]` | 固定座席割り当ての設定 |
 
 ### Context に追加すべきでないもの
@@ -85,8 +84,7 @@ src/
 │   │   └── SeatingChart.tsx    # 座席確認・D&D による手動調整
 │   ├── Config/
 │   │   ├── SeatConfig.tsx      # 座席レイアウト設定画面（ラッパー）
-│   │   ├── FixedSeatConfig.tsx # 固定座席設定画面
-│   │   └── RelationConfig.tsx  # 関係性設定画面（現在未使用）
+│   │   └── FixedSeatConfig.tsx # 固定座席設定画面
 │   ├── ControlPanel/
 │   │   └── ControlPanel.tsx    # 汎用コントロールパネル
 │   ├── Layout/
@@ -107,7 +105,6 @@ src/
 ├── constants/
 │   └── index.ts                # アプリ全体の定数・フェーズ定義
 ├── types/
-│   ├── Relation.ts             # 関係性データの型
 │   ├── Roulette.ts             # ルーレット状態の型
 │   ├── Seat.ts                 # 座席データの型
 │   └── Student.ts              # 生徒データの型
