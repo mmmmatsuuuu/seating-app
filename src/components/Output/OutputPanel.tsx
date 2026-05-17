@@ -10,6 +10,7 @@ import {
   Tooltip,
   Snackbar,
   Alert,
+  TextField,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -38,6 +39,8 @@ const OutputPanel: React.FC = () => {
     info2: false,
     info3: false,
   });
+  const [topText, setTopText] = useState('');
+  const [bottomText, setBottomText] = useState('');
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '', severity: 'info' });
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -165,19 +168,52 @@ const OutputPanel: React.FC = () => {
         </Box>
       </Paper>
 
-      {/* 印刷対象エリア。@media print で#print-area だけが表示される */}
+      {/* 印刷対象エリア。@media print で #print-area だけが表示される */}
       <div id="print-area">
         <Paper elevation={3} sx={{ p: 3, my: 3, '@media print': { boxShadow: 'none', margin: 0, padding: 0 } }}>
           <Typography variant="h6" gutterBottom align="center" sx={{ '@media print': { display: 'none' } }}>
             座席表プレビュー
           </Typography>
-          <Box sx={{ overflowX: 'auto' }}>
+
+          {/* 上部テキストボックス（タイトル欄） */}
+          <TextField
+            fullWidth
+            variant="standard"
+            placeholder="〇年〇組 座席表"
+            value={topText}
+            onChange={(e) => setTopText(e.target.value)}
+            inputProps={{ style: { textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' } }}
+            sx={{
+              mb: 2,
+              '@media print': {
+                '& .MuiInput-underline::before, & .MuiInput-underline::after': { display: 'none' },
+              },
+            }}
+          />
+
+          <Box className="print-chart-wrapper" sx={{ overflowX: 'auto' }}>
             <PrintableSeatChart
               seatMap={seatMap}
               students={students}
               selectedFields={selectedFields}
             />
           </Box>
+
+          {/* 下部テキストボックス（備考欄） */}
+          <TextField
+            fullWidth
+            variant="standard"
+            placeholder="〇月〇日から"
+            value={bottomText}
+            onChange={(e) => setBottomText(e.target.value)}
+            inputProps={{ style: { textAlign: 'center' } }}
+            sx={{
+              mt: 2,
+              '@media print': {
+                '& .MuiInput-underline::before, & .MuiInput-underline::after': { display: 'none' },
+              },
+            }}
+          />
         </Paper>
       </div>
 
