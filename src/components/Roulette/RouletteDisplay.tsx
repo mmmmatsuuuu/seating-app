@@ -54,7 +54,7 @@ const getAdjacentSeatIds = (seatId: string, seatMap: SeatMapData[]): string[] =>
   return potentialAdjacents.filter(adjId => seatMap.some(s => s.seatId === adjId) && adjId !== seatId);
 };
 
-const BULK_SPIN_MS = 500;
+const BULK_SPIN_MS = 800;
 const BULK_CONFIRM_MS = 300;
 
 const RouletteDisplay: React.FC = () => {
@@ -72,7 +72,7 @@ const RouletteDisplay: React.FC = () => {
 
   const animationFrameRef = useRef<number | null>(null);
   const bulkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rouletteSpeed = 60;
+  const rouletteSpeed = 100;
   const [openResultModal, setOpenResultModal] = useState<boolean>(false);
   const [bulkCompleteModalOpen, setBulkCompleteModalOpen] = useState(false);
   const [isBulkAnimating, setIsBulkAnimating] = useState(false);
