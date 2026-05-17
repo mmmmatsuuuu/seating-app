@@ -7,12 +7,9 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
-  Avatar,
   IconButton,
   Alert,
   AlertTitle,
-  Chip,
   Divider,
   Autocomplete,
   TextField,
@@ -20,6 +17,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ChairIcon from '@mui/icons-material/Chair';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import type { Student } from '../../types/Student';
 import type { SeatMapData } from '../../types/Seat';
@@ -47,17 +46,18 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => Number(a.number) - Number(b.number));
   }, [students]);
 
   const assignedStudentIds = useMemo(() => {
-    return new Set(editableFixedSeatAssignments.map(assignment => assignment.studentId));
+    return new Set(editableFixedSeatAssignments.map(a => a.studentId));
   }, [editableFixedSeatAssignments]);
 
   const assignedSeatIds = useMemo(() => {
-    return new Set(editableFixedSeatAssignments.map(assignment => assignment.seatId));
+    return new Set(editableFixedSeatAssignments.map(a => a.seatId));
   }, [editableFixedSeatAssignments]);
 
   const highlightedSeatIds = useMemo(() => {
@@ -112,45 +112,6 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
     onConfigFinished(editableFixedSeatAssignments);
   }, [editableFixedSeatAssignments, onConfigFinished]);
 
-  const renderAssignment = useCallback((assignment: FixedSeatAssignment, index: number) => {
-    const student = students.find(s => s.id === assignment.studentId);
-    if (!student) return null;
-
-    return (
-      <ListItem
-        key={index}
-        secondaryAction={
-          <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteAssignment(index)}>
-            <DeleteIcon />
-          </IconButton>
-        }
-      >
-        <ListItemIcon>
-          <ChairIcon color="action" />
-        </ListItemIcon>
-        <ListItemText
-          primary={
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-              <Typography color='gray'>座席割り当て: </Typography>
-              <Typography>{student.name} を {assignment.seatId} に</Typography>
-            </Box>
-          }
-          secondary={
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-              <Chip
-                avatar={<Avatar>{student.number}</Avatar>}
-                label={student.name}
-                size="small"
-              />
-              <ChairIcon fontSize="small" color="primary" />
-              <Chip label={assignment.seatId} size="small" />
-            </Box>
-          }
-        />
-      </ListItem>
-    );
-  }, [students, handleDeleteAssignment]);
-
   const onDragEnd = useCallback(() => {}, []);
 
   return (
@@ -170,100 +131,147 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
         </Alert>
       )}
 
-      {/* 生徒・座席選択エリア */}
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Autocomplete<Student>
-            options={sortedStudents}
-            getOptionLabel={(s: Student) => `${s.number}番 ${s.name}`}
-            value={selectedStudent}
-            onChange={(_: React.SyntheticEvent, student: Student | null) => {
-              setErrorMessage(null);
-              setSelectedStudent(student);
-            }}
-            getOptionDisabled={(s: Student) => assignedStudentIds.has(s.id)}
-            isOptionEqualToValue={(option: Student, value: Student) => option.id === value.id}
-            size="small"
-            sx={{ minWidth: 240, flexGrow: 1 }}
-            noOptionsText="生徒がいません"
-            renderInput={(params) => <TextField {...params} label="生徒を選択" />}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            座席: {selectedSeatId || '未選択'}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<ChairIcon />}
-            onClick={handleAddAssignment}
-            disabled={!selectedStudent || !selectedSeatId}
-          >
-            割り当てる
-          </Button>
-          <Button
-            variant="outlined"
-            color="inherit"
-            size="small"
-            onClick={() => { setSelectedStudent(null); setSelectedSeatId(null); setErrorMessage(null); }}
-            disabled={!selectedStudent && !selectedSeatId}
-          >
-            選択解除
-          </Button>
-        </Box>
-      </Paper>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+        {/* サイドバー: 設定済み固定座席 */}
+        {sidebarVisible && (
+          <Paper elevation={2} sx={{ p: 2, width: 240, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                設定済み ({editableFixedSeatAssignments.length}件)
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={handleClearAllAssignments}
+                  disabled={editableFixedSeatAssignments.length === 0}
+                  title="全クリア"
+                >
+                  <ClearAllIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => setSidebarVisible(false)}>
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Box>
+            </Box>
+            <List dense sx={{ maxHeight: 500, overflow: 'auto', border: '1px solid #eee', borderRadius: 1 }}>
+              {editableFixedSeatAssignments.length === 0 ? (
+                <ListItem>
+                  <ListItemText secondary="まだ設定されていません" secondaryTypographyProps={{ variant: 'caption' }} />
+                </ListItem>
+              ) : (
+                editableFixedSeatAssignments.map((assignment, index) => {
+                  const student = students.find(s => s.id === assignment.studentId);
+                  if (!student) return null;
+                  return (
+                    <ListItem
+                      key={index}
+                      secondaryAction={
+                        <IconButton edge="end" size="small" onClick={() => handleDeleteAssignment(index)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      }
+                      sx={{ py: 0.5 }}
+                    >
+                      <ListItemText
+                        primary={`${student.number}番 ${student.name}`}
+                        secondary={assignment.seatId}
+                        primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                        secondaryTypographyProps={{ variant: 'caption' }}
+                      />
+                    </ListItem>
+                  );
+                })
+              )}
+            </List>
+          </Paper>
+        )}
 
-      {/* 座席グリッド */}
-      {seatMap.length === 0 ? (
-        <Box sx={{ p: 3, textAlign: 'center', mb: 3 }}>
-          <Typography variant="h6" color="text.secondary">
-            座席マップが設定されていません。
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            「座席レイアウト設定」から座席を作成してください。
-          </Typography>
-        </Box>
-      ) : (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-          <DragDropContext onDragEnd={onDragEnd}>
-            <SeatMapChart
-              seatMap={seatMap.map(seat => ({
-                ...seat,
-                assignedStudentId: editableFixedSeatAssignments.find(a => a.seatId === seat.seatId)?.studentId || seat.assignedStudentId,
-              }))}
-              students={students}
-              onClickSeat={handleSeatClick}
-              displayMode="config"
-              highlightedSeatIds={highlightedSeatIds}
-              isDragAndDropEnabled={false}
-            />
-          </DragDropContext>
-        </Box>
-      )}
-
-      {/* 設定済み固定座席リスト */}
-      <Paper elevation={2} sx={{ p: 2, mt: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" gutterBottom component="div">
-            設定済み固定座席
-          </Typography>
-          <Button
-            variant="outlined"
-            color="warning"
-            startIcon={<ClearAllIcon />}
-            onClick={handleClearAllAssignments}
-            disabled={editableFixedSeatAssignments.length === 0}
-            size="small"
-          >
-            全クリア
-          </Button>
-        </Box>
-        <List sx={{ maxHeight: 400, overflow: 'auto', border: '1px solid #eee', borderRadius: 1 }}>
-          {editableFixedSeatAssignments.length === 0 ? (
-            <ListItem><ListItemText secondary="まだ固定座席は設定されていません。" /></ListItem>
-          ) : (
-            editableFixedSeatAssignments.map((assignment, index) => renderAssignment(assignment, index))
+        {/* メインコンテンツ */}
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          {/* サイドバー非表示時の展開ボタン */}
+          {!sidebarVisible && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<ChevronRightIcon />}
+              onClick={() => setSidebarVisible(true)}
+              sx={{ mb: 2 }}
+            >
+              設定済み固定座席 ({editableFixedSeatAssignments.length}件)
+            </Button>
           )}
-        </List>
-      </Paper>
+
+          {/* 生徒・座席選択エリア */}
+          <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Autocomplete<Student>
+                options={sortedStudents}
+                getOptionLabel={(s: Student) => `${s.number}番 ${s.name}`}
+                value={selectedStudent}
+                onChange={(_: React.SyntheticEvent, student: Student | null) => {
+                  setErrorMessage(null);
+                  setSelectedStudent(student);
+                }}
+                getOptionDisabled={(s: Student) => assignedStudentIds.has(s.id)}
+                isOptionEqualToValue={(option: Student, value: Student) => option.id === value.id}
+                size="small"
+                sx={{ minWidth: 200, flexGrow: 1 }}
+                noOptionsText="生徒がいません"
+                renderInput={(params) => <TextField {...params} label="生徒を選択" />}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                座席: {selectedSeatId || '未選択'}
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<ChairIcon />}
+                onClick={handleAddAssignment}
+                disabled={!selectedStudent || !selectedSeatId}
+              >
+                割り当てる
+              </Button>
+              <Button
+                variant="outlined"
+                color="inherit"
+                size="small"
+                onClick={() => { setSelectedStudent(null); setSelectedSeatId(null); setErrorMessage(null); }}
+                disabled={!selectedStudent && !selectedSeatId}
+              >
+                選択解除
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* 座席グリッド */}
+          {seatMap.length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" color="text.secondary">
+                座席マップが設定されていません。
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                「座席レイアウト設定」から座席を作成してください。
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <SeatMapChart
+                  seatMap={seatMap.map(seat => ({
+                    ...seat,
+                    assignedStudentId: editableFixedSeatAssignments.find(a => a.seatId === seat.seatId)?.studentId || seat.assignedStudentId,
+                  }))}
+                  students={students}
+                  onClickSeat={handleSeatClick}
+                  displayMode="config"
+                  highlightedSeatIds={highlightedSeatIds}
+                  isDragAndDropEnabled={false}
+                />
+              </DragDropContext>
+            </Box>
+          )}
+        </Box>
+      </Box>
 
       {/* ナビゲーションボタン */}
       <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
