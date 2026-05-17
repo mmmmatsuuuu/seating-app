@@ -486,7 +486,13 @@ const RouletteDisplay: React.FC = () => {
               size="small"
               sx={{ flexGrow: 1, minWidth: 160 }}
               noOptionsText="未割り当ての生徒がいません"
-              renderInput={(params) => <TextField {...params} label="次の生徒" />}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="次の生徒"
+                  inputProps={{ ...params.inputProps, style: { fontSize: '1.25rem', fontWeight: 'bold' } }}
+                />
+              )}
             />
             <IconButton size="small" onClick={() => setPanelVisible(false)}>
               <KeyboardArrowDownIcon />
