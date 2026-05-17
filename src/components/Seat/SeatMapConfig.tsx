@@ -193,6 +193,9 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
         表示されている座席をクリックして、使用不可に設定できます。
       </Typography>
       <Paper elevation={2} sx={{ p: 2, overflowX: 'auto' }}>
+        <Box sx={{ textAlign: 'center', bgcolor: 'grey.800', color: 'white', py: 0.5, borderRadius: 1, mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>黒板（前）</Typography>
+        </Box>
         <Grid container spacing={1} justifyContent="center" wrap="wrap">
           {Array.from({ length: rows }).map((_, rowIndex) => (
             <Grid container size={12} key={`row-${rowIndex}`} spacing={1} justifyContent="center" wrap="nowrap">
@@ -225,6 +228,9 @@ const SeatMapConfig: React.FC<SeatMapConfigProps> = ({
             </Grid>
           ))}
         </Grid>
+        <Box sx={{ textAlign: 'center', mt: 2 }}>
+          <Typography variant="caption" color="text.secondary">後</Typography>
+        </Box>
       </Paper>
       {rows * cols > MAX_SEATS && (
           <Alert severity="warning" sx={{ mt: 2 }}>

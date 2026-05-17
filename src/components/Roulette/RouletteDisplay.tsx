@@ -401,6 +401,9 @@ const RouletteDisplay: React.FC = () => {
 
       {/* 座席グリッド - 画面中央に配置 */}
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflowX: 'auto', px: 1 }}>
+        <Box sx={{ alignSelf: 'stretch', textAlign: 'center', bgcolor: 'grey.800', color: 'white', py: 0.5, borderRadius: 1, mb: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>黒板（前）</Typography>
+        </Box>
         {Array.from({ length: maxRow }).map((_, rowIndex) => (
           <Box key={`row-${rowIndex}`} sx={{ display: 'flex', gap: 0.5, mb: 0.5 }}>
             {Array.from({ length: maxCol }).map((_, colIndex) => {
@@ -442,6 +445,9 @@ const RouletteDisplay: React.FC = () => {
             })}
           </Box>
         ))}
+        <Box sx={{ alignSelf: 'stretch', textAlign: 'center', mt: 1 }}>
+          <Typography variant="caption" color="text.secondary">後</Typography>
+        </Box>
       </Box>
 
       {/* パネル非表示時: 展開ボタンのみ表示 */}
