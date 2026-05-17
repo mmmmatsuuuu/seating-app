@@ -67,55 +67,56 @@ const SeatMapChart: React.FC<SeatMapChartProps> = ({
   const isSeatDroppableInThisMode = isDragAndDropEnabled && (displayMode === 'final'); // D&Dは final モードでのみ有効とする
 
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        // maxCols を使用して動的にカラム数を設定
-        gridTemplateColumns: `repeat(${maxCols}, minmax(80px, 1fr))`,
-        gap: 1.5,
-        p: 2,
-        border: '1px solid #e0e0e0',
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        width: 'fit-content',
-        boxShadow: 3,
-        overflowX: 'auto',
-      }}
-    >
-      {seatMap.map((seat) => (
-        <Droppable droppableId={seat.seatId} key={seat.seatId} isDropDisabled={!isSeatDroppableInThisMode}>
-          {(provided) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              style={{
-                minHeight: '80px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Seat
-                // seatId と assignedStudentId を直接渡すように変更
-                seatId={seat.seatId}
-                seatData={seat}
-                // 座席の行と列の情報を Seat.tsx に渡す場合
-                // row={/* seatIdから解析するか、別のpropsとしてAppから渡す */}
-                // col={/* seatIdから解析するか、別のpropsとしてAppから渡す */}
-                onClick={onClickSeat ? () => onClickSeat(seat.seatId) : undefined}
-                isConfigMode={displayMode === 'config'}
-                isHighlighted={highlightedSeatIds.has(seat.seatId)}
-                displayMode={displayMode}
-                assignedStudent={seat.assignedStudentId ? studentMap.get(seat.assignedStudentId) : null}
-                // D&Dのドラッグ可能状態をSeatに渡す
-                // 生徒が割り当てられていて、かつ D&Dが有効なフェーズの場合のみドラッグ可能
-                isDragDisabled={!(isDragAndDropEnabled && displayMode === 'final' && seat.assignedStudentId)}
-              />
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      ))}
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content' }}>
+      <Box sx={{ width: '100%', textAlign: 'center', bgcolor: 'grey.800', color: 'white', py: 0.5, borderRadius: 1, mb: 1 }}>
+        <Typography variant="caption" sx={{ fontWeight: 'bold' }}>黒板（前）</Typography>
+      </Box>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${maxCols}, minmax(80px, 1fr))`,
+          gap: 1.5,
+          p: 2,
+          border: '1px solid #e0e0e0',
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          width: 'fit-content',
+          boxShadow: 3,
+          overflowX: 'auto',
+        }}
+      >
+        {seatMap.map((seat) => (
+          <Droppable droppableId={seat.seatId} key={seat.seatId} isDropDisabled={!isSeatDroppableInThisMode}>
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                style={{
+                  minHeight: '80px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Seat
+                  seatId={seat.seatId}
+                  seatData={seat}
+                  onClick={onClickSeat ? () => onClickSeat(seat.seatId) : undefined}
+                  isConfigMode={displayMode === 'config'}
+                  isHighlighted={highlightedSeatIds.has(seat.seatId)}
+                  displayMode={displayMode}
+                  assignedStudent={seat.assignedStudentId ? studentMap.get(seat.assignedStudentId) : null}
+                  isDragDisabled={!(isDragAndDropEnabled && displayMode === 'final' && seat.assignedStudentId)}
+                />
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        ))}
+      </Box>
+      <Box sx={{ width: '100%', textAlign: 'center', mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">後</Typography>
+      </Box>
     </Box>
   );
 };
