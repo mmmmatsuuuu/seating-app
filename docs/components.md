@@ -54,7 +54,7 @@
 
 **フェーズ**: `roulette`  
 **責務**: ルーレットアニメーションと座席割り当ての実行  
-**Context から参照**: `students`, `setStudents`, `seatMap`, `setSeatMap`, `rouletteState`, `setRouletteState`, `relationConfig`, `fixedSeatAssignments`, `setAppPhase`  
+**Context から参照**: `students`, `setStudents`, `seatMap`, `setSeatMap`, `rouletteState`, `setRouletteState`, `fixedSeatAssignments`, `setAppPhase`  
 
 **実装上の注意**:
 - アニメーションは `requestAnimationFrame` で管理。`animationFrameRef` に格納し、コンポーネントアンマウント時・ルーレット停止時に `cancelAnimationFrame` でクリーンアップする
@@ -161,12 +161,6 @@
 ---
 
 ## 未使用コンポーネント（将来対応）
-
-### RelationConfig（`src/components/Config/RelationConfig.tsx`）
-
-**状態**: `App.tsx` のフェーズスイッチでコメントアウト中  
-**責務**: 生徒間の関係性（隣に座らせたい・たくない）の設定 UI  
-**再有効化計画**: `docs/roadmap.md` 参照
 
 ### ControlPanel（`src/components/ControlPanel/ControlPanel.tsx`）
 

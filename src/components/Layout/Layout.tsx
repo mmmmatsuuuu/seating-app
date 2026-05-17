@@ -28,8 +28,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setAppPhase,
     rouletteState,
     setRouletteState,
-    relationConfig,
-    setRelationConfig,
     fixedSeatAssignments,
     setFixedSeatAssignments,
   } = useAppState();
@@ -62,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleSaveData = useCallback(() => {
     try {
       const dataToSave: AppPersistedState = {
-        students, seatMap, appPhase, rouletteState, relationConfig, fixedSeatAssignments,
+        students, seatMap, appPhase, rouletteState, fixedSeatAssignments,
       };
       saveAppData(dataToSave);
       showSnackbar('データを保存しました！', 'success');
@@ -71,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     } finally {
       handleCloseMenu();
     }
-  }, [students, seatMap, appPhase, rouletteState, relationConfig, fixedSeatAssignments, showSnackbar]);
+  }, [students, seatMap, appPhase, rouletteState, fixedSeatAssignments, showSnackbar]);
 
   const handleLoadData = useCallback(() => {
     handleCloseMenu();
@@ -83,7 +81,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         setSeatMap(loadedData.seatMap);
         setAppPhase(loadedData.appPhase);
         setRouletteState(loadedData.rouletteState);
-        setRelationConfig(loadedData.relationConfig);
         setFixedSeatAssignments(loadedData.fixedSeatAssignments);
         showSnackbar('データを読み込みました！', 'success');
       } else {
@@ -92,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     } catch {
       showSnackbar('データの読み込みに失敗しました。データ形式が不正な可能性があります。', 'error');
     }
-  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig, setFixedSeatAssignments, showSnackbar]);
+  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setFixedSeatAssignments, showSnackbar]);
 
   const handleResetData = useCallback(() => {
     handleCloseMenu();
@@ -102,13 +99,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setSeatMap([]);
       setAppPhase('input');
       setRouletteState({ isRunning: false, currentSelectedSeatId: null, currentAssigningStudent: null, winningHistory: [], isStopped: false });
-      setRelationConfig([]);
       setFixedSeatAssignments([]);
       showSnackbar('全てのデータがリセットされました。', 'success');
     } catch {
       showSnackbar('データのリセットに失敗しました。', 'error');
     }
-  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setRelationConfig, setFixedSeatAssignments, showSnackbar]);
+  }, [setStudents, setSeatMap, setAppPhase, setRouletteState, setFixedSeatAssignments, showSnackbar]);
 
   const appPhases: AppPhase[] = ['input', 'config', 'fixedSeat', 'roulette', 'chart', 'finished'];
 
