@@ -31,6 +31,10 @@ export const parseStudentData = (text: string, delimitersToGuess: string[] = CSV
       const info2 = String(row[4] || '').trim();
       const info3 = String(row[5] || '').trim();
 
+      if (!number) {
+        console.warn(`行 ${index + 1}: 1列目（出席番号）が空のためスキップします。`);
+        return null;
+      }
       if (!name) {
         console.warn(`行 ${index + 1}: 2列目（氏名）が空のためスキップします。`);
         return null;
@@ -38,7 +42,7 @@ export const parseStudentData = (text: string, delimitersToGuess: string[] = CSV
 
       return {
         id: `student-${Date.now()}-${index}`,
-        number: number || String(index + 1),
+        number,
         name,
         kana,
         info1,

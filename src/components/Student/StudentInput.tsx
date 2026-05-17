@@ -10,7 +10,7 @@ interface StudentInputProps {
 }
 
 const COLUMN_GUIDE = [
-  { label: '出席番号', required: false },
+  { label: '出席番号', required: true },
   { label: '氏名', required: true },
   { label: 'ふりがな', required: false },
   { label: '情報1', required: false },
