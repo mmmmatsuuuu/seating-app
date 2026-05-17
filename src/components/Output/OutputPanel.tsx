@@ -1,4 +1,3 @@
-// src/components/output/OutputPanel.tsx
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -12,21 +11,14 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import PrintIcon from '@mui/icons-material/Print';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useAppState } from '../../contexts/AppStateContext';
 import PrintableSeatChart from './PrintableSeatChart';
 
-// PDF生成ライブラリ (例: jsPDFとhtml2canvas)
-// プロジェクトにインストールが必要です:
-// npm install jspdf html2canvas
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
-// 出力可能な生徒情報の項目
 interface StudentOutputFields {
   id: boolean;
-  number: boolean; // 出席番号など
+  number: boolean;
   name: boolean;
   kana: boolean;
   info1: boolean;
@@ -39,8 +31,8 @@ const OutputPanel: React.FC = () => {
 
   const [selectedFields, setSelectedFields] = useState<StudentOutputFields>({
     id: false,
-    number: true, // デフォルトで出席番号を表示
-    name: true, // デフォルトで名前を表示
+    number: true,
+    name: true,
     kana: false,
     info1: false,
     info2: false,
@@ -54,92 +46,23 @@ const OutputPanel: React.FC = () => {
 
   const handleFieldChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      setSelectedFields({
-        ...selectedFields,
-        [event.target.name]: event.target.checked,
-      });
+      setSelectedFields(prev => ({ ...prev, [event.target.name]: event.target.checked }));
     },
+    []
+  );
+
+  const hasSelectedFields = useMemo(
+    () => Object.values(selectedFields).some(v => v),
     [selectedFields]
   );
 
-  // 選択された項目があるかどうかの判定 (ボタンの disabled 状態に使用)
-  const hasSelectedFields = useMemo(() => {
-    return Object.values(selectedFields).some((isChecked) => isChecked);
-  }, [selectedFields]);
-
-  // 座席表データと生徒情報を結合し、表示形式に整形する関数
-  // この関数は、PDF出力とコピー機能で共通して使用します。
-  const getOutputTableData = useCallback(() => {
-    const tableData: { [key: string]: string | number | null }[][] = [];
-    const maxRow = Math.max(...seatMap.map((seat) => seat.row));
-    const maxCol = Math.max(...seatMap.map((seat) => seat.col));
-
-    for (let r = 1; r <= maxRow; r++) {
-      const rowData: { [key: string]: string | number | null }[] = [];
-      for (let c = 1; c <= maxCol; c++) {
-        const seat = seatMap.find((s) => s.row === r && s.col === c && s.isUsable);
-        let cellData: { [key: string]: string | number | null } = {
-          seatId: seat ? seat.seatId : null,
-          row: r,
-          col: c,
-        };
-
-        if (seat && seat.assignedStudentId) {
-          const student = students.find((s) => s.id === seat.assignedStudentId);
-          if (student) {
-            // 選択されたフィールドのみをセルデータに追加
-            if (selectedFields.id) cellData.id = student.id;
-            if (selectedFields.number) cellData.number = student.number;
-            if (selectedFields.name) cellData.name = student.name;
-            if (selectedFields.kana) cellData.kana = student.kana;
-            if (selectedFields.info1) cellData.info1 = student.info1;
-            if (selectedFields.info2) cellData.info2 = student.info2;
-            if (selectedFields.info3) cellData.info3 = student.info3;
-          }
-        }
-        rowData.push(cellData);
-      }
-      tableData.push(rowData);
-    }
-    return tableData;
-  }, [students, seatMap, selectedFields]);
-
-  const handleGeneratePdf = useCallback(async () => {
+  const handlePrint = useCallback(() => {
     if (!hasSelectedFields) {
       showSnackbar('表示したい項目を選択してください。', 'warning');
       return;
     }
-
-    const input = document.getElementById('main-seating-chart-container');
-    if (!input) {
-      showSnackbar('PDF出力元の要素が見つかりません。', 'error');
-      return;
-    }
-
-    try {
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        logging: true,
-      });
-      const imgData = canvas.toDataURL('image/jpeg');
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const margin = 10;
-      pdf.addImage(imgData, 'PNG', margin, margin, imgWidth - 2 * margin, imgHeight - 2 * margin);
-      pdf.save('seat-arrangement-chart.pdf');
-    } catch (error) {
-      console.error('PDF生成中にエラーが発生しました:', error);
-      showSnackbar('PDFの生成に失敗しました。', 'error');
-    }
+    window.print();
   }, [hasSelectedFields, showSnackbar]);
-
 
   const handleCopyToClipboard = useCallback(async () => {
     if (!hasSelectedFields) {
@@ -162,58 +85,44 @@ const OutputPanel: React.FC = () => {
 
     for (let r = 1; r <= maxRow; r++) {
       activeFieldKeys.forEach(field => {
-        const fieldDataRow: (string | number | null)[] = [field.label];
-
+        const row: (string | number | null)[] = [field.label];
         for (let c = 1; c <= maxCol; c++) {
           const seat = seatMap.find((s) => s.row === r && s.col === c && s.isUsable);
-          const student = seat && seat.assignedStudentId
+          const student = seat?.assignedStudentId
             ? students.find((s) => s.id === seat.assignedStudentId)
             : null;
-
           if (seat) {
-            if (student) {
-              const value = student[field.key as 'id' | 'number' | 'name' | 'kana' | 'info1' | 'info2' | 'info3'];
-              fieldDataRow.push(value ?? '');
-            } else {
-              fieldDataRow.push('空席');
-            }
+            row.push(student ? (student[field.key as 'id' | 'number' | 'name' | 'kana' | 'info1' | 'info2' | 'info3'] ?? '') : '空席');
           } else {
-            fieldDataRow.push('使用不可');
+            row.push('使用不可');
           }
         }
-        csvContent += fieldDataRow.map(v => (v === null || v === undefined) ? '' : String(v)).join('\t') + '\n';
+        csvContent += row.map(v => (v === null || v === undefined) ? '' : String(v)).join('\t') + '\n';
       });
     }
 
     try {
       await navigator.clipboard.writeText(csvContent);
       showSnackbar('座席データがクリップボードにコピーされました！表計算ソフトに貼り付けてください。', 'success');
-    } catch (err) {
-      console.error('クリップボードへのコピーに失敗しました:', err);
+    } catch {
       showSnackbar('クリップボードへのコピーに失敗しました。', 'error');
     }
   }, [hasSelectedFields, seatMap, students, selectedFields, showSnackbar]);
 
   return (
     <>
-      {/* 既存の出力オプションコントロール */}
-      <Paper elevation={3} sx={{ p: 3, my: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* 印刷時には非表示にする操作パネル */}
+      <Paper elevation={3} sx={{ p: 3, my: 3, display: 'flex', flexDirection: 'column', gap: 2, '@media print': { display: 'none' } }}>
         <Typography variant="h6" gutterBottom align="center">
           座席表出力オプション
         </Typography>
 
         <Typography variant="subtitle1" sx={{ mb: 1 }}>表示項目を選択:</Typography>
         <Grid container spacing={1}>
-          {Object.entries(selectedFields).map(([key, value]) => (
+          {(Object.entries(selectedFields) as [keyof StudentOutputFields, boolean][]).map(([key, value]) => (
             <Grid size={{ xs: 4, sm: 2 }} key={key}>
               <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={value}
-                    onChange={handleFieldChange}
-                    name={key}
-                  />
-                }
+                control={<Checkbox checked={value} onChange={handleFieldChange} name={key} />}
                 label={
                   key === 'id' ? '生徒ID' :
                   key === 'number' ? '出席番号' :
@@ -227,101 +136,50 @@ const OutputPanel: React.FC = () => {
         </Grid>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
-          <Tooltip title={hasSelectedFields ? "現在の座席表をPDFで出力" : "出力項目を選択してください"}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleGeneratePdf}
-              startIcon={<PictureAsPdfIcon />}
-              disabled={!hasSelectedFields}
-            >
-              PDF出力
-            </Button>
+          <Tooltip title={hasSelectedFields ? '座席表を印刷' : '出力項目を選択してください'}>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handlePrint}
+                startIcon={<PrintIcon />}
+                disabled={!hasSelectedFields}
+              >
+                印刷
+              </Button>
+            </span>
           </Tooltip>
-          <Tooltip title={hasSelectedFields ? "座席データを表計算ソフト用にコピー" : "出力項目を選択してください"}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleCopyToClipboard}
-              startIcon={<ContentCopyIcon />}
-              disabled={!hasSelectedFields}
-            >
-              コピー
-            </Button>
+          <Tooltip title={hasSelectedFields ? '座席データを表計算ソフト用にコピー' : '出力項目を選択してください'}>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleCopyToClipboard}
+                startIcon={<ContentCopyIcon />}
+                disabled={!hasSelectedFields}
+              >
+                コピー
+              </Button>
+            </span>
           </Tooltip>
         </Box>
       </Paper>
 
-      {/* main-seating-chart-container: 座席表プレビューと詳細データ表示用 */}
-      <Paper elevation={3} sx={{ p: 3, my: 3 }}>
-        <Typography variant="h6" gutterBottom align="center">
-          座席表プレビューと詳細データ
-        </Typography>
-        <div
-          style={{overflow: 'scroll'}}
-        >
-          <div id="main-seating-chart-container" style={{ padding: '20px', overflowX: 'scroll', width: '1181px' }}>
-            {/* 視覚的な座席表 */}
-            <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>座席表</Typography>
-            <Typography variant="h5"  sx={{ my: 2, mx: 32, p: 1, border: 2, textAlign: "center" }}>教卓</Typography>
+      {/* 印刷対象エリア。@media print で#print-area だけが表示される */}
+      <div id="print-area">
+        <Paper elevation={3} sx={{ p: 3, my: 3, '@media print': { boxShadow: 'none', margin: 0, padding: 0 } }}>
+          <Typography variant="h6" gutterBottom align="center" sx={{ '@media print': { display: 'none' } }}>
+            座席表プレビュー
+          </Typography>
+          <Box sx={{ overflowX: 'auto' }}>
             <PrintableSeatChart
               seatMap={seatMap}
               students={students}
               selectedFields={selectedFields}
             />
-
-          </div>
-        </div>
-        {/* 詳細データテーブル */}
-        {hasSelectedFields ? (
-          <>
-            <Typography variant="h6" gutterBottom sx={{ mt: 4, mb: 2 }}>座席詳細データ</Typography>
-            <div style={{ overflowX: 'auto' }}> {/* 小さい画面での横スクロールを可能にする */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f2f2f2' }}>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>行</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>列</th>
-                    {selectedFields.id && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>生徒ID</th>}
-                    {selectedFields.number && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>出席番号</th>}
-                    {selectedFields.name && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>名前</th>}
-                    {selectedFields.kana && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>フリガナ</th>}
-                    {selectedFields.info1 && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>情報1</th>}
-                    {selectedFields.info2 && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>情報2</th>}
-                    {selectedFields.info3 && <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>情報3</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* getOutputTableDataの結果をフラット化し、各座席データをテーブルの行として表示 */}
-                  {getOutputTableData().flat().map((seatCellData, index) => {
-                    // isUsableがfalseの座席や、生徒が割り当てられていない座席はテーブルに表示しない
-                    if (seatCellData.seatId === null && seatCellData.assignedStudentId === null) {
-                      return null;
-                    }
-                    return (
-                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.row}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.col}</td>
-                        {selectedFields.id && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.id ?? ''}</td>}
-                        {selectedFields.number && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.number ?? ''}</td>}
-                        {selectedFields.name && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.name ?? ''}</td>}
-                        {selectedFields.kana && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.kana ?? ''}</td>}
-                        {selectedFields.info1 && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.info1 ?? ''}</td>}
-                        {selectedFields.info2 && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.info2 ?? ''}</td>}
-                        {selectedFields.info3 && <td style={{ border: '1px solid #ddd', padding: '8px' }}>{seatCellData.info3 ?? ''}</td>}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <Typography variant="body1" color="textSecondary" sx={{ mt: 4, textAlign: 'center' }}>
-            表示する項目を選択すると、詳細データが表示されます。
-          </Typography>
-        )}
-      </Paper>
+          </Box>
+        </Paper>
+      </div>
 
       <Snackbar
         open={snackbar.open}

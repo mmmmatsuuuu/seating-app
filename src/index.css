@@ -106,3 +106,27 @@ a {
   margin-bottom: 16px;
 }
 */
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  /* 画面上の全要素を非表示にし、印刷エリアだけを表示する */
+  body * {
+    visibility: hidden;
+  }
+
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+
+  #print-area {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+  }
+}

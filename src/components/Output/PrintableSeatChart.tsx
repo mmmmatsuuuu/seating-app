@@ -1,4 +1,3 @@
-// src/components/output/PrintableSeatChart.tsx
 import React from 'react';
 import type { Student } from '../../types/Student';
 import type { SeatMapData } from '../../types/Seat';
@@ -39,17 +38,20 @@ const PrintableSeatChart: React.FC<PrintableSeatChartProps> = ({
   const gridTemplateColumns = `repeat(${maxCol}, minmax(100px, 1fr))`;
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: gridTemplateColumns, // 動的に設定された列
-        gap: '10px', // 座席間のスペース
-        border: '1px solid #ccc', // 全体の枠線
-        padding: '10px', // 内側の余白
-        backgroundColor: '#f9f9f9', // 背景色
-        overflowX: 'auto', // 横スクロールが必要な場合
-      }}
-    >
+    <div>
+      <div style={{ backgroundColor: '#424242', color: '#fff', textAlign: 'center', padding: '4px 0', borderRadius: '4px', marginBottom: '8px', fontSize: '0.85em' }}>
+        黒板（前）
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: gridTemplateColumns,
+          gap: '8px',
+          border: '1px solid #ccc',
+          padding: '8px',
+          backgroundColor: '#f9f9f9',
+        }}
+      >
       {/* 最大行と最大列に基づいてグリッドセルを生成 */}
       {Array.from({ length: maxRow * maxCol }).map((_, index) => {
         const r = Math.floor(index / maxCol) + 1; // 現在の行番号
@@ -118,6 +120,10 @@ const PrintableSeatChart: React.FC<PrintableSeatChartProps> = ({
           </div>
         );
       })}
+      </div>
+      <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '0.8em', color: '#666' }}>
+        後
+      </div>
     </div>
   );
 };
