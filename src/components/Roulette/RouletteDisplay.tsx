@@ -54,6 +54,9 @@ const getAdjacentSeatIds = (seatId: string, seatMap: SeatMapData[]): string[] =>
   return potentialAdjacents.filter(adjId => seatMap.some(s => s.seatId === adjId) && adjId !== seatId);
 };
 
+const BULK_SPIN_MS = 500;
+const BULK_CONFIRM_MS = 300;
+
 const RouletteDisplay: React.FC = () => {
   const {
     students,
@@ -68,8 +71,11 @@ const RouletteDisplay: React.FC = () => {
   } = useAppState();
 
   const animationFrameRef = useRef<number | null>(null);
+  const bulkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rouletteSpeed = 60;
   const [openResultModal, setOpenResultModal] = useState<boolean>(false);
+  const [bulkCompleteModalOpen, setBulkCompleteModalOpen] = useState(false);
+  const [isBulkAnimating, setIsBulkAnimating] = useState(false);
   const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<Student | null>(null);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [manuallySelectedSeatIdForRoulette, setManuallySelectedSeatIdForRoulette] = useState<string | null>(null);
@@ -290,96 +296,158 @@ const RouletteDisplay: React.FC = () => {
 
     setLocalErrorMessage(null);
 
+    // --- 割り当てキューを事前計算 ---
     let tempSeatMap: SeatMapData[] = JSON.parse(JSON.stringify(seatMap));
     let tempStudents: Student[] = JSON.parse(JSON.stringify(students));
-    const tempWinningHistory = [...rouletteState.winningHistory];
+    const assignedStudentIds = new Set<string>();
+    const assignedSeatIds = new Set<string>();
+    const queue: { studentId: string; seatId: string }[] = [];
+    const errors: string[] = [];
 
-    const assignedStudentIdsInTemp = new Set<string>();
-    const assignedSeatIdsInTemp = new Set<string>();
+    // 固定座席の未割り当て生徒を先にキューへ
+    fixedSeatAssignments.forEach(fsa => {
+      const student = tempStudents.find(s => s.id === fsa.studentId && !s.isAssigned);
+      const seat = tempSeatMap.find(s => s.seatId === fsa.seatId);
+      if (!student) return;
+      if (!seat || !seat.isUsable) { errors.push(`生徒 ${student.name} の固定座席 (${fsa.seatId}) は使用できません。`); return; }
+      if (seat.assignedStudentId && seat.assignedStudentId !== student.id) { errors.push(`生徒 ${student.name} の固定座席 (${fsa.seatId}) は既に他の生徒に割り当てられています。`); return; }
+      if (assignedStudentIds.has(student.id) || assignedSeatIds.has(fsa.seatId)) return;
 
-    const fixedAssignmentErrors: string[] = [];
-    fixedSeatAssignments.forEach(fixedAssignment => {
-      const student = tempStudents.find(s => s.id === fixedAssignment.studentId);
-      const fixedSeat = tempSeatMap.find(s => s.seatId === fixedAssignment.seatId);
+      queue.push({ studentId: student.id, seatId: fsa.seatId });
+      tempSeatMap = tempSeatMap.map(s => s.seatId === fsa.seatId ? { ...s, assignedStudentId: student.id } : s);
+      tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: fsa.seatId } : s);
+      assignedStudentIds.add(student.id);
+      assignedSeatIds.add(fsa.seatId);
+    });
 
-      if (!student) { fixedAssignmentErrors.push(`固定座席が設定されている生徒 (${fixedAssignment.studentId}) が見つかりません。`); return; }
-      if (!fixedSeat) { fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) が見つかりません。`); return; }
-      if (!fixedSeat.isUsable) { fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) は使用不可です。`); return; }
-      if (fixedSeat.assignedStudentId && fixedSeat.assignedStudentId !== student.id) {
-        fixedAssignmentErrors.push(`生徒 ${student.name} の固定座席 (${fixedAssignment.seatId}) は既に他の生徒に割り当てられています。`);
+    // 残りをランダムにキューへ
+    const remaining = tempStudents.filter(s => !s.isAssigned);
+    const remainingSeats = tempSeatMap.filter(s => s.isUsable && !s.assignedStudentId);
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+    for (let i = remainingSeats.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remainingSeats[i], remainingSeats[j]] = [remainingSeats[j], remainingSeats[i]];
+    }
+    remaining.forEach(student => {
+      let assigned = false;
+      for (let i = 0; i < remainingSeats.length; i++) {
+        const seat = remainingSeats[i];
+        if (assignedSeatIds.has(seat.seatId)) continue;
+        if (checkRelationConstraints(seat.seatId, student, tempSeatMap, tempStudents, relationConfig)) {
+          queue.push({ studentId: student.id, seatId: seat.seatId });
+          tempSeatMap = tempSeatMap.map(s => s.seatId === seat.seatId ? { ...s, assignedStudentId: student.id } : s);
+          tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: seat.seatId } : s);
+          assignedStudentIds.add(student.id);
+          assignedSeatIds.add(seat.seatId);
+          remainingSeats.splice(i, 1);
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) errors.push(student.name);
+    });
+
+    if (errors.length > 0) {
+      setLocalErrorMessage(`以下の生徒の座席を見つけられませんでした: ${errors.join(', ')}`);
+      return;
+    }
+
+    // --- 1人ずつアニメーション実行 ---
+    setIsBulkAnimating(true);
+    setManuallySelectedSeatIdForRoulette(null);
+
+    const runBulkAnimation = (
+      remaining: { studentId: string; seatId: string }[],
+      liveSeatMap: SeatMapData[],
+      liveStudents: Student[],
+      liveHistory: { studentId: string; seatId: string }[],
+    ) => {
+      if (remaining.length === 0) {
+        setIsBulkAnimating(false);
+        setSelectedStudentForAssignment(null);
+        setRouletteState((prev: RouletteState) => ({
+          ...prev,
+          isRunning: false,
+          isStopped: true,
+          currentSelectedSeatId: null,
+          currentAssigningStudent: null,
+          winningHistory: liveHistory,
+        }));
+        setBulkCompleteModalOpen(true);
         return;
       }
-      if (assignedStudentIdsInTemp.has(student.id) || assignedSeatIdsInTemp.has(fixedSeat.seatId)) return;
 
-      tempSeatMap = tempSeatMap.map(s => s.seatId === fixedSeat.seatId ? { ...s, assignedStudentId: student.id } : s);
-      tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: fixedSeat.seatId } : s);
-      tempWinningHistory.push({ studentId: student.id, seatId: fixedSeat.seatId });
-      assignedStudentIdsInTemp.add(student.id);
-      assignedSeatIdsInTemp.add(fixedSeat.seatId);
-    });
+      const { studentId, seatId } = remaining[0];
+      const student = liveStudents.find(s => s.id === studentId)!;
+      const animatableSeats = liveSeatMap.filter(s => s.isUsable && !s.assignedStudentId);
 
-    if (fixedAssignmentErrors.length > 0) {
-      setLocalErrorMessage('固定座席の割り当て中に問題が発生しました:\n' + fixedAssignmentErrors.join('\n'));
-    }
+      setSelectedStudentForAssignment(student);
+      setRouletteState((prev: RouletteState) => ({
+        ...prev,
+        isRunning: true,
+        isStopped: false,
+        currentAssigningStudent: student,
+        currentSelectedSeatId: null,
+      }));
 
-    const remainingUnassignedStudents = tempStudents.filter(s => !s.isAssigned);
-    const remainingAvailableSeats = tempSeatMap.filter(seat => seat.isUsable && !seat.assignedStudentId);
-
-    for (let i = remainingUnassignedStudents.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [remainingUnassignedStudents[i], remainingUnassignedStudents[j]] = [remainingUnassignedStudents[j], remainingUnassignedStudents[i]];
-    }
-    for (let i = remainingAvailableSeats.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [remainingAvailableSeats[i], remainingAvailableSeats[j]] = [remainingAvailableSeats[j], remainingAvailableSeats[i]];
-    }
-
-    remainingUnassignedStudents.forEach(student => {
-      if (assignedStudentIdsInTemp.has(student.id)) return;
-
-      let assigned = false;
-      let currentSeatIndex = 0;
-      const maxAttempts = remainingAvailableSeats.length * 2;
-      let attempts = 0;
-
-      while (!assigned && currentSeatIndex < remainingAvailableSeats.length && attempts < maxAttempts) {
-        const potentialSeat = remainingAvailableSeats[currentSeatIndex];
-        if (!potentialSeat?.seatId || assignedSeatIdsInTemp.has(potentialSeat.seatId)) {
-          currentSeatIndex++; attempts++; continue;
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      let lastTime = 0;
+      const spin = (t: number) => {
+        if (!lastTime || t - lastTime >= rouletteSpeed) {
+          lastTime = t;
+          const idx = Math.floor(Math.random() * animatableSeats.length);
+          setRouletteState((prev: RouletteState) => ({ ...prev, currentSelectedSeatId: animatableSeats[idx]?.seatId || null }));
         }
-        if (checkRelationConstraints(potentialSeat.seatId, student, tempSeatMap, tempStudents, relationConfig)) {
-          tempSeatMap = tempSeatMap.map(s => s.seatId === potentialSeat.seatId ? { ...s, assignedStudentId: student.id } : s);
-          tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: potentialSeat.seatId } : s);
-          tempWinningHistory.push({ studentId: student.id, seatId: potentialSeat.seatId });
-          assignedStudentIdsInTemp.add(student.id);
-          assignedSeatIdsInTemp.add(potentialSeat.seatId);
-          remainingAvailableSeats.splice(currentSeatIndex, 1);
-          assigned = true;
-        } else {
-          currentSeatIndex++; attempts++;
+        animationFrameRef.current = requestAnimationFrame(spin);
+      };
+      animationFrameRef.current = requestAnimationFrame(spin);
+
+      bulkTimeoutRef.current = setTimeout(() => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
         }
-      }
-      if (!assigned) {
-        setLocalErrorMessage(prev => prev
-          ? `${prev}\n生徒 ${student.name} の座席を見つけられませんでした。`
-          : `生徒 ${student.name} の座席を見つけられませんでした。関係性設定を見直してください。`
+
+        const newSeatMap = liveSeatMap.map(s =>
+          s.seatId === seatId ? { ...s, assignedStudentId: studentId } : s
         );
-      }
-    });
+        const newStudents = liveStudents.map(s =>
+          s.id === studentId ? { ...s, isAssigned: true, assignedSeatId: seatId } : s
+        );
+        const newHistory = [...liveHistory, { studentId, seatId }];
 
-    setSeatMap(tempSeatMap);
-    setStudents(tempStudents);
-    setRouletteState(prev => ({
-      ...prev,
-      winningHistory: tempWinningHistory,
-      isRunning: false,
-      isStopped: true,
-      currentSelectedSeatId: null,
-      currentAssigningStudent: null,
-    }));
-    setSelectedStudentForAssignment(null);
-    setManuallySelectedSeatIdForRoulette(null);
-  }, [unassignedStudents, availableSeats, seatMap, students, relationConfig, rouletteState.winningHistory, fixedSeatAssignments, setSeatMap, setStudents, setRouletteState, checkRelationConstraints]);
+        setSeatMap(newSeatMap);
+        setStudents(newStudents);
+        setRouletteState((prev: RouletteState) => ({
+          ...prev,
+          isRunning: false,
+          isStopped: true,
+          currentSelectedSeatId: seatId,
+          currentAssigningStudent: student,
+          winningHistory: newHistory,
+        }));
+
+        bulkTimeoutRef.current = setTimeout(() => {
+          runBulkAnimation(remaining.slice(1), newSeatMap, newStudents, newHistory);
+        }, BULK_CONFIRM_MS);
+      }, BULK_SPIN_MS);
+    };
+
+    runBulkAnimation(queue, seatMap, students, rouletteState.winningHistory);
+  }, [unassignedStudents, availableSeats, seatMap, students, relationConfig, rouletteState.winningHistory, fixedSeatAssignments, setSeatMap, setStudents, setRouletteState, checkRelationConstraints, rouletteSpeed]);
+
+  const handleCancelBulkAssign = useCallback(() => {
+    if (bulkTimeoutRef.current) clearTimeout(bulkTimeoutRef.current);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setIsBulkAnimating(false);
+    setRouletteState((prev: RouletteState) => ({ ...prev, isRunning: false, isStopped: true, currentSelectedSeatId: null }));
+  }, [setRouletteState]);
 
   const allStudentsAssigned = unassignedStudents.length === 0;
   const maxRow = seatMap.length > 0 ? Math.max(...seatMap.map(s => parseInt(s.seatId.match(/R(\d+)C(\d+)/)?.[1] || '0', 10))) : 0;
@@ -513,7 +581,7 @@ const RouletteDisplay: React.FC = () => {
               size="small"
               startIcon={<PlayArrowIcon />}
               onClick={startRoulette}
-              disabled={rouletteState.isRunning || !selectedStudentForAssignment || availableSeats.length === 0}
+              disabled={isBulkAnimating || rouletteState.isRunning || !selectedStudentForAssignment || availableSeats.length === 0}
             >
               スタート
             </Button>
@@ -523,27 +591,39 @@ const RouletteDisplay: React.FC = () => {
               size="small"
               startIcon={<StopIcon />}
               onClick={stopRoulette}
-              disabled={!rouletteState.isRunning}
+              disabled={isBulkAnimating || !rouletteState.isRunning}
             >
               ストップ
             </Button>
-            <Button
-              variant="outlined"
-              color="info"
-              size="small"
-              startIcon={<ShuffleIcon />}
-              onClick={handleBulkAssign}
-              disabled={rouletteState.isRunning || unassignedStudents.length === 0 || availableSeats.length === 0 || unassignedStudents.length > availableSeats.length}
-            >
-              全員一括
-            </Button>
+            {isBulkAnimating ? (
+              <Button
+                variant="contained"
+                color="warning"
+                size="small"
+                startIcon={<StopIcon />}
+                onClick={handleCancelBulkAssign}
+              >
+                一括中止
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="info"
+                size="small"
+                startIcon={<ShuffleIcon />}
+                onClick={handleBulkAssign}
+                disabled={rouletteState.isRunning || unassignedStudents.length === 0 || availableSeats.length === 0 || unassignedStudents.length > availableSeats.length}
+              >
+                全員一括
+              </Button>
+            )}
             <Button
               variant="outlined"
               color="error"
               size="small"
               startIcon={<RestartAltIcon />}
               onClick={handleResetRoulette}
-              disabled={rouletteState.isRunning}
+              disabled={isBulkAnimating || rouletteState.isRunning}
             >
               リセット
             </Button>
@@ -593,6 +673,31 @@ const RouletteDisplay: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
           <Button onClick={handleCloseResultModal} variant="contained" size="large">OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 一括割り当て完了ダイアログ */}
+      <Dialog
+        open={bulkCompleteModalOpen}
+        TransitionComponent={Transition}
+        onClose={() => setBulkCompleteModalOpen(false)}
+      >
+        <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
+          <EmojiEventsIcon color="warning" sx={{ fontSize: 60, mb: -1 }} />
+          <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+            全員決定！
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center' }}>
+          <Typography variant="h6" color="text.primary" sx={{ mt: 1 }}>
+            全 {students.length} 名の座席が決まりました！
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2, gap: 1 }}>
+          <Button onClick={() => setBulkCompleteModalOpen(false)} variant="outlined" size="large">閉じる</Button>
+          <Button onClick={() => { setBulkCompleteModalOpen(false); setAppPhase('chart'); }} variant="contained" color="success" size="large" startIcon={<DoneAllIcon />}>
+            座席表へ
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
