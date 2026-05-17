@@ -5,6 +5,8 @@ import {
   Paper,
   Button,
   IconButton,
+  Autocomplete,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -267,6 +269,16 @@ const RouletteDisplay: React.FC = () => {
     setManuallySelectedSeatIdForRoulette(null);
   }, [seatMap, students, setSeatMap, setStudents, setRouletteState]);
 
+  const handleStudentSelect = useCallback((studentId: string) => {
+    const student = students.find((s: Student) => s.id === studentId);
+    if (student && !student.isAssigned) {
+      setSelectedStudentForAssignment(student);
+      setRouletteState((prev: RouletteState) => ({ ...prev, currentAssigningStudent: student, isStopped: false, currentSelectedSeatId: null }));
+      setLocalErrorMessage(null);
+      setManuallySelectedSeatIdForRoulette(null);
+    }
+  }, [students, setRouletteState]);
+
   const handleBulkAssign = useCallback(() => {
     if (unassignedStudents.length === 0) { setLocalErrorMessage('割り当てる生徒がいません。'); return; }
     if (availableSeats.length === 0) { setLocalErrorMessage('割り当て可能な空席がありません。'); return; }
@@ -459,20 +471,23 @@ const RouletteDisplay: React.FC = () => {
             minWidth: 320,
           }}
         >
-          {/* 1行目: 進捗 + 次の生徒 + 折りたたみボタン */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+          {/* 1行目: 進捗 + 次の生徒(Autocomplete) + 折りたたみボタン */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
             <Typography variant="body2" color="text.secondary" noWrap>
               {assignedCount} / {students.length} 名割り当て済み
             </Typography>
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="caption" color="text.secondary" display="block">次の生徒</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                {selectedStudentForAssignment
-                  ? `${selectedStudentForAssignment.number}番 ${selectedStudentForAssignment.name}`
-                  : '—'
-                }
-              </Typography>
-            </Box>
+            <Autocomplete<Student>
+              options={unassignedStudents}
+              getOptionLabel={(s: Student) => `${s.number}番 ${s.name}`}
+              value={selectedStudentForAssignment}
+              onChange={(_: React.SyntheticEvent, student: Student | null) => { if (student) handleStudentSelect(student.id); }}
+              isOptionEqualToValue={(option: Student, value: Student) => option.id === value.id}
+              disabled={rouletteState.isRunning}
+              size="small"
+              sx={{ flexGrow: 1, minWidth: 160 }}
+              noOptionsText="未割り当ての生徒がいません"
+              renderInput={(params) => <TextField {...params} label="次の生徒" />}
+            />
             <IconButton size="small" onClick={() => setPanelVisible(false)}>
               <KeyboardArrowDownIcon />
             </IconButton>
