@@ -106,3 +106,70 @@ a {
   margin-bottom: 16px;
 }
 */
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  /* 画面上の全要素を非表示にし、印刷エリアだけを表示する */
+  body * {
+    visibility: hidden;
+  }
+
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+
+  /* #print-area をページ全体に固定し、フレックス縦積みで子要素に高さを配分する */
+  #print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* MUI Paper: シャドウ・余白を除去してフレックス子要素として伸長させる */
+  #print-area .MuiPaper-root {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    background: white !important;
+  }
+
+  /* 座席チャートのラッパー Box: 残りの高さを占有する */
+  .print-chart-wrapper {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
+  }
+
+  /* PrintableSeatChart のルート div: 縦方向に伸長 */
+  .print-chart-root {
+    flex: 1 !important;
+  }
+
+  /* 座席グリッド: 列を均等幅に、行をグリッド高さの 1fr で均等分割する */
+  .print-seat-grid {
+    flex: 1 !important;
+    overflow: visible !important;
+    grid-template-columns: repeat(var(--seat-cols, 7), 1fr) !important;
+    grid-auto-rows: 1fr !important;
+    gap: 4px !important;
+  }
+
+  /* 座席セル: aspect-ratio・min-height を解除して行高さに追従させる */
+  .print-seat-cell {
+    aspect-ratio: unset !important;
+    min-height: unset !important;
+    box-shadow: none !important;
+  }
+}
