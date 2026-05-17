@@ -4,6 +4,7 @@ import {
   Typography,
   Paper,
   Button,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,6 +18,8 @@ import ShuffleIcon from '@mui/icons-material/Shuffle';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 import Seat from '../Seat/Seat';
 
@@ -68,6 +71,7 @@ const RouletteDisplay: React.FC = () => {
   const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<Student | null>(null);
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [manuallySelectedSeatIdForRoulette, setManuallySelectedSeatIdForRoulette] = useState<string | null>(null);
+  const [panelVisible, setPanelVisible] = useState(true);
 
   const unassignedStudents = useMemo(() => {
     return students.filter(s => !s.isAssigned).sort((a, b) => Number(a.number) - Number(b.number));
@@ -428,98 +432,107 @@ const RouletteDisplay: React.FC = () => {
         ))}
       </Box>
 
+      {/* パネル非表示時: 展開ボタンのみ表示 */}
+      {!panelVisible && (
+        <Paper
+          elevation={4}
+          sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 1100, borderRadius: 2 }}
+        >
+          <IconButton onClick={() => setPanelVisible(true)} size="small" sx={{ p: 1 }}>
+            <KeyboardArrowUpIcon />
+          </IconButton>
+        </Paper>
+      )}
+
       {/* フローティング操作パネル（画面右下） */}
-      <Paper
-        elevation={8}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          px: 2.5,
-          py: 2,
-          zIndex: 1100,
-          borderRadius: 3,
-          minWidth: 240,
-          maxWidth: 320,
-        }}
-      >
-        {/* 進捗テキスト */}
-        <Typography variant="caption" color="text.secondary">
-          {assignedCount} / {students.length} 名割り当て済み
-        </Typography>
+      {panelVisible && (
+        <Paper
+          elevation={8}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            px: 2,
+            py: 1.5,
+            zIndex: 1100,
+            borderRadius: 3,
+            minWidth: 320,
+          }}
+        >
+          {/* 1行目: 進捗 + 次の生徒 + 折りたたみボタン */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {assignedCount} / {students.length} 名割り当て済み
+            </Typography>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="caption" color="text.secondary" display="block">次の生徒</Typography>
+              <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                {selectedStudentForAssignment
+                  ? `${selectedStudentForAssignment.number}番 ${selectedStudentForAssignment.name}`
+                  : '—'
+                }
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setPanelVisible(false)}>
+              <KeyboardArrowDownIcon />
+            </IconButton>
+          </Box>
 
-        {/* 次の生徒表示 */}
-        <Box sx={{ mt: 0.5, mb: 1.5 }}>
-          <Typography variant="caption" color="text.secondary">次の生徒</Typography>
-          <Typography variant="h6" fontWeight="bold" noWrap>
-            {selectedStudentForAssignment
-              ? `${selectedStudentForAssignment.number}番 ${selectedStudentForAssignment.name}`
-              : '—'
-            }
-          </Typography>
-        </Box>
-
-        {/* スタート / ストップ */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PlayArrowIcon />}
-            onClick={startRoulette}
-            disabled={rouletteState.isRunning || !selectedStudentForAssignment || availableSeats.length === 0}
-            fullWidth
-          >
-            スタート
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<StopIcon />}
-            onClick={stopRoulette}
-            disabled={!rouletteState.isRunning}
-            fullWidth
-          >
-            ストップ
-          </Button>
-        </Box>
-
-        {/* サブ操作 */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            color="info"
-            size="small"
-            startIcon={<ShuffleIcon />}
-            onClick={handleBulkAssign}
-            disabled={rouletteState.isRunning || unassignedStudents.length === 0 || availableSeats.length === 0 || unassignedStudents.length > availableSeats.length}
-            fullWidth
-          >
-            全員一括
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            startIcon={<RestartAltIcon />}
-            onClick={handleResetRoulette}
-            disabled={rouletteState.isRunning}
-            fullWidth
-          >
-            リセット
-          </Button>
-          <Button
-            variant="contained"
-            color="success"
-            size="small"
-            startIcon={<DoneAllIcon />}
-            onClick={() => setAppPhase('chart')}
-            disabled={!allStudentsAssigned}
-            fullWidth
-          >
-            座席表へ
-          </Button>
-        </Box>
-      </Paper>
+          {/* 2行目: 操作ボタン */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<PlayArrowIcon />}
+              onClick={startRoulette}
+              disabled={rouletteState.isRunning || !selectedStudentForAssignment || availableSeats.length === 0}
+            >
+              スタート
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              startIcon={<StopIcon />}
+              onClick={stopRoulette}
+              disabled={!rouletteState.isRunning}
+            >
+              ストップ
+            </Button>
+            <Button
+              variant="outlined"
+              color="info"
+              size="small"
+              startIcon={<ShuffleIcon />}
+              onClick={handleBulkAssign}
+              disabled={rouletteState.isRunning || unassignedStudents.length === 0 || availableSeats.length === 0 || unassignedStudents.length > availableSeats.length}
+            >
+              全員一括
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<RestartAltIcon />}
+              onClick={handleResetRoulette}
+              disabled={rouletteState.isRunning}
+            >
+              リセット
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              startIcon={<DoneAllIcon />}
+              onClick={() => setAppPhase('chart')}
+              disabled={!allStudentsAssigned}
+            >
+              座席表へ
+            </Button>
+          </Box>
+        </Paper>
+      )}
 
       {/* 座席決定モーダル */}
       <Dialog
