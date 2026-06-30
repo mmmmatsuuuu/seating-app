@@ -73,6 +73,16 @@ const RouletteDisplay: React.FC = () => {
     return seatMap.filter(seat => seat.isUsable && !seat.assignedStudentId);
   }, [seatMap]);
 
+  // 現在の生徒に許可された空席。許可エリアが指定されていてもすべて埋まっている場合は
+  // 条件を無視して全空席を対象にする（生徒に裏方の操作を悟られないためエラーは出さない）。
+  const allowedSeatsForCurrentStudent = useMemo(() => {
+    if (!selectedStudentForAssignment) return availableSeats;
+    const fsa = fixedSeatAssignments.find(f => f.studentId === selectedStudentForAssignment.id);
+    if (!fsa || fsa.seatIds.length === 0) return availableSeats;
+    const allowedAvailable = availableSeats.filter(s => fsa.seatIds.includes(s.seatId));
+    return allowedAvailable.length > 0 ? allowedAvailable : availableSeats;
+  }, [selectedStudentForAssignment, availableSeats, fixedSeatAssignments]);
+
   useEffect(() => {
     if (!rouletteState.currentAssigningStudent && unassignedStudents.length > 0) {
       setSelectedStudentForAssignment(unassignedStudents[0]);
@@ -98,14 +108,14 @@ const RouletteDisplay: React.FC = () => {
     const animate = (currentTime: number) => {
       if (!lastTime || currentTime - lastTime >= rouletteSpeed) {
         lastTime = currentTime;
-        const randomIndex = Math.floor(Math.random() * availableSeats.length);
-        const randomSeatId = availableSeats[randomIndex]?.seatId || null;
+        const randomIndex = Math.floor(Math.random() * allowedSeatsForCurrentStudent.length);
+        const randomSeatId = allowedSeatsForCurrentStudent[randomIndex]?.seatId || null;
         setRouletteState((prev: RouletteState) => ({ ...prev, currentSelectedSeatId: randomSeatId }));
       }
       animationFrameRef.current = requestAnimationFrame(animate);
     };
     animationFrameRef.current = requestAnimationFrame(animate);
-  }, [availableSeats, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
+  }, [availableSeats, allowedSeatsForCurrentStudent, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
 
   const stopRoulette = useCallback(() => {
     if (!rouletteState.isRunning) return;
@@ -126,24 +136,14 @@ const RouletteDisplay: React.FC = () => {
 
     let finalChosenSeatId: string | null = null;
 
-    const fixedAssignmentForStudent = fixedSeatAssignments.find(fsa => fsa.studentId === selectedStudentForAssignment.id);
-
-    if (fixedAssignmentForStudent) {
-      const fixedSeatId = fixedAssignmentForStudent.seatId;
-      const targetFixedSeat = seatMap.find(seat => seat.seatId === fixedSeatId);
-      if (!targetFixedSeat || !targetFixedSeat.isUsable) {
-        setLocalErrorMessage(`生徒 ${selectedStudentForAssignment.name} の固定座席 (${fixedSeatId}) は使用できません。`);
-      } else if (targetFixedSeat.assignedStudentId && targetFixedSeat.assignedStudentId !== selectedStudentForAssignment.id) {
-        setLocalErrorMessage(`生徒 ${selectedStudentForAssignment.name} の固定座席 (${fixedSeatId}) は既に他の生徒に割り当てられています。`);
-      } else {
-        finalChosenSeatId = fixedSeatId;
-      }
-    } else if (manuallySelectedSeatIdForRoulette && availableSeats.find((s: SeatMapData) => s.seatId === manuallySelectedSeatIdForRoulette)) {
+    // 教師による手動選択を最優先で尊重し、次にルーレットで点灯していた座席、
+    // どちらも無ければ許可エリア（埋まっていれば全空席）からランダムに決定する。
+    if (manuallySelectedSeatIdForRoulette && availableSeats.find((s: SeatMapData) => s.seatId === manuallySelectedSeatIdForRoulette)) {
       finalChosenSeatId = manuallySelectedSeatIdForRoulette;
     } else if (rouletteState.currentSelectedSeatId && availableSeats.find((s: SeatMapData) => s.seatId === rouletteState.currentSelectedSeatId)) {
       finalChosenSeatId = rouletteState.currentSelectedSeatId;
-    } else if (availableSeats.length > 0) {
-      finalChosenSeatId = availableSeats[Math.floor(Math.random() * availableSeats.length)].seatId;
+    } else if (allowedSeatsForCurrentStudent.length > 0) {
+      finalChosenSeatId = allowedSeatsForCurrentStudent[Math.floor(Math.random() * allowedSeatsForCurrentStudent.length)].seatId;
     }
 
     if (!finalChosenSeatId) {
@@ -174,7 +174,7 @@ const RouletteDisplay: React.FC = () => {
 
     setManuallySelectedSeatIdForRoulette(null);
     setOpenResultModal(true);
-  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, selectedStudentForAssignment, seatMap, students, setSeatMap, setStudents, setRouletteState, manuallySelectedSeatIdForRoulette, fixedSeatAssignments]);
+  }, [rouletteState.isRunning, rouletteState.currentSelectedSeatId, availableSeats, allowedSeatsForCurrentStudent, selectedStudentForAssignment, seatMap, students, setSeatMap, setStudents, setRouletteState, manuallySelectedSeatIdForRoulette]);
 
   const handleCloseResultModal = useCallback(() => {
     setOpenResultModal(false);
@@ -231,63 +231,48 @@ const RouletteDisplay: React.FC = () => {
     setLocalErrorMessage(null);
 
     // --- 割り当てキューを事前計算 ---
-    let tempSeatMap: SeatMapData[] = JSON.parse(JSON.stringify(seatMap));
-    let tempStudents: Student[] = JSON.parse(JSON.stringify(students));
-    const assignedStudentIds = new Set<string>();
-    const assignedSeatIds = new Set<string>();
     const queue: { studentId: string; seatId: string }[] = [];
-    const errors: string[] = [];
+    // 残りの空席ID集合。割り当てるたびに削っていく
+    const availableSeatIds = new Set(availableSeats.map(s => s.seatId));
+    const fixedMap = new Map(fixedSeatAssignments.map(f => [f.studentId, f.seatIds]));
 
-    // 固定座席の未割り当て生徒を先にキューへ
-    fixedSeatAssignments.forEach(fsa => {
-      const student = tempStudents.find(s => s.id === fsa.studentId && !s.isAssigned);
-      const seat = tempSeatMap.find(s => s.seatId === fsa.seatId);
-      if (!student) return;
-      if (!seat || !seat.isUsable) { errors.push(`生徒 ${student.name} の固定座席 (${fsa.seatId}) は使用できません。`); return; }
-      if (seat.assignedStudentId && seat.assignedStudentId !== student.id) { errors.push(`生徒 ${student.name} の固定座席 (${fsa.seatId}) は既に他の生徒に割り当てられています。`); return; }
-      if (assignedStudentIds.has(student.id) || assignedSeatIds.has(fsa.seatId)) return;
+    // 許可エリア指定のある生徒を「選べる空席が少ない順」に先に処理して希望を尊重する。
+    // 埋まっていれば後段のランダム割り当てに回す（条件を無視・エラーは出さない）。
+    const constrained = unassignedStudents
+      .filter(s => (fixedMap.get(s.id)?.length ?? 0) > 0)
+      .map(s => ({
+        student: s,
+        allowedCount: (fixedMap.get(s.id) || []).filter(id => availableSeatIds.has(id)).length,
+      }))
+      .sort((a, b) => a.allowedCount - b.allowedCount);
 
-      queue.push({ studentId: student.id, seatId: fsa.seatId });
-      tempSeatMap = tempSeatMap.map(s => s.seatId === fsa.seatId ? { ...s, assignedStudentId: student.id } : s);
-      tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: fsa.seatId } : s);
-      assignedStudentIds.add(student.id);
-      assignedSeatIds.add(fsa.seatId);
+    const placedStudentIds = new Set<string>();
+    constrained.forEach(({ student }) => {
+      const allowedNow = (fixedMap.get(student.id) || []).filter(id => availableSeatIds.has(id));
+      if (allowedNow.length === 0) return; // 許可エリアが埋まっているのでランダム割り当てへ
+      const seatId = allowedNow[Math.floor(Math.random() * allowedNow.length)];
+      queue.push({ studentId: student.id, seatId });
+      availableSeatIds.delete(seatId);
+      placedStudentIds.add(student.id);
     });
 
-    // 残りをランダムにキューへ
-    const remaining = tempStudents.filter(s => !s.isAssigned);
-    const remainingSeats = tempSeatMap.filter(s => s.isUsable && !s.assignedStudentId);
+    // 残り（許可エリアなし・許可エリアが埋まっていた生徒）をランダムな空席へ
+    const remaining = unassignedStudents.filter(s => !placedStudentIds.has(s.id));
+    const remainingSeatIds = Array.from(availableSeatIds);
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
     }
-    for (let i = remainingSeats.length - 1; i > 0; i--) {
+    for (let i = remainingSeatIds.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [remainingSeats[i], remainingSeats[j]] = [remainingSeats[j], remainingSeats[i]];
+      [remainingSeatIds[i], remainingSeatIds[j]] = [remainingSeatIds[j], remainingSeatIds[i]];
     }
-    remaining.forEach(student => {
-      let assigned = false;
-      for (let i = 0; i < remainingSeats.length; i++) {
-        const seat = remainingSeats[i];
-        if (assignedSeatIds.has(seat.seatId)) continue;
-        queue.push({ studentId: student.id, seatId: seat.seatId });
-        tempSeatMap = tempSeatMap.map(s => s.seatId === seat.seatId ? { ...s, assignedStudentId: student.id } : s);
-        tempStudents = tempStudents.map(s => s.id === student.id ? { ...s, isAssigned: true, assignedSeatId: seat.seatId } : s);
-        assignedStudentIds.add(student.id);
-        assignedSeatIds.add(seat.seatId);
-        remainingSeats.splice(i, 1);
-        assigned = true;
-        break;
-      }
-      if (!assigned) errors.push(student.name);
+    remaining.forEach((student, index) => {
+      const seatId = remainingSeatIds[index];
+      if (seatId) queue.push({ studentId: student.id, seatId });
     });
 
-    if (errors.length > 0) {
-      setLocalErrorMessage(`以下の生徒の座席を見つけられませんでした: ${errors.join(', ')}`);
-      return;
-    }
-
-    // 固定座席・ランダムの区別なく順番を完全にシャッフル
+    // 許可エリア・ランダムの区別なく順番を完全にシャッフル（処理順から手心が見えないように）
     for (let i = queue.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [queue[i], queue[j]] = [queue[j], queue[i]];

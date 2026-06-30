@@ -20,7 +20,9 @@ export type SeatMap = SeatMapData[];
 
 /**
  * 固定座席割り当ての型定義
- * 特定の生徒が、特定の座席に割り当てられていることを示します。
+ * 特定の生徒が座れる座席を「許可エリア」として複数指定します。
+ * ルーレットはこのエリア内の空席から抽選し、エリアが埋まっていれば
+ * 全空席から抽選する（条件を無視する）フォールバック動作になります。
  */
 export interface FixedSeatAssignment {
   /**
@@ -29,8 +31,9 @@ export interface FixedSeatAssignment {
    */
   studentId: string;
   /**
-   * 割り当てられた座席のID。
-   * 例: "Seat-1", "A-1", "B-3" など、座席を一意に識別する文字列。
+   * この生徒に許可する座席IDの配列。
+   * 要素が1つならピンポイント固定と同じ挙動になる。
+   * 複数指定するとその中から抽選される。
    */
-  seatId: string;
+  seatIds: string[];
 }

@@ -38,15 +38,20 @@
 ### FixedSeatConfig（`src/components/Config/FixedSeatConfig.tsx`）
 
 **フェーズ**: `fixedSeat`  
-**責務**: 特定の生徒を特定の座席に固定する設定の UI  
+**責務**: 生徒ごとに座れる座席（許可エリア）を複数指定する設定の UI  
 **主要 Props**:
 - `students: Student[]`
 - `seatMap: SeatMapData[]`
 - `currentFixedSeatAssignments: FixedSeatAssignment[]`
-- `onConfigFinished(updatedConfig: FixedSeatAssignment[])`: 確定時のコールバック
+- `onConfigFinished(updatedConfig: FixedSeatAssignment[])`: 確定時のコールバック（`seatIds` が空の設定は除外して渡す）
+
+**UI の要点**:
+- 生徒を選択 → 個別選択（クリックでトグル）／範囲選択（始点・終点クリックで矩形）の 2 モードで許可席を編集
+- 生徒ごとに色分けし、1 座席に複数生徒の指定が重なる場合は座席内にチップで表示
+- 「希望が埋まっていれば無視してランダム割り当てする」旨の注意を常設表示
 
 **禁止事項**: `Student.isAssigned` の更新は行わない。`FixedSeatAssignment[]` の設定のみ  
-**子コンポーネント**: `SeatMapChart`（D&D 無効、クリックで選択）
+**備考**: 座席グリッドは色分け・重複表示のため `SeatMapChart` を使わず自前のグリッドで描画する
 
 ---
 

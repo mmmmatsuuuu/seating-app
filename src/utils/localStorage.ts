@@ -49,6 +49,16 @@ export const loadAppData = (): AppPersistedState | null => {
       return null;
     }
     const data: AppPersistedState = JSON.parse(serializedData);
+    // 旧形式 ({ studentId, seatId }) を新形式 ({ studentId, seatIds }) へ移行する
+    if (Array.isArray(data.fixedSeatAssignments)) {
+      data.fixedSeatAssignments = data.fixedSeatAssignments.map((fsa) => {
+        const legacy = fsa as FixedSeatAssignment & { seatId?: string };
+        if (!legacy.seatIds && legacy.seatId) {
+          return { studentId: legacy.studentId, seatIds: [legacy.seatId] };
+        }
+        return { studentId: legacy.studentId, seatIds: legacy.seatIds ?? [] };
+      });
+    }
     console.log('アプリケーションデータが読み込まれました。');
     return data;
   } catch (error) {
