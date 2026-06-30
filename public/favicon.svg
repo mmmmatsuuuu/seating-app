@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="13" fill="#1976d2"/>
+  <!-- 黒板（前） -->
+  <rect x="9" y="9" width="46" height="6" rx="2" fill="#263238"/>
+  <!-- 座席グリッド（3x3）。抽選で選ばれた1席をオレンジで強調 -->
+  <g>
+    <rect x="10" y="22"  width="12" height="10" rx="2" fill="#ffffff"/>
+    <rect x="26" y="22"  width="12" height="10" rx="2" fill="#ffffff"/>
+    <rect x="42" y="22"  width="12" height="10" rx="2" fill="#ffffff"/>
+
+    <rect x="10" y="37"  width="12" height="10" rx="2" fill="#ffffff"/>
+    <rect x="26" y="37"  width="12" height="10" rx="2" fill="#f57c00"/>
+    <rect x="42" y="37"  width="12" height="10" rx="2" fill="#ffffff"/>
+
+    <rect x="10" y="52"  width="12" height="8"  rx="2" fill="#ffffff"/>
+    <rect x="26" y="52"  width="12" height="8"  rx="2" fill="#ffffff"/>
+    <rect x="42" y="52"  width="12" height="8"  rx="2" fill="#ffffff"/>
+  </g>
+</svg>
