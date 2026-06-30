@@ -36,7 +36,7 @@
 | `seatMap` | `SeatMapData[]` | 全座席の状態（使用可否・割り当て状況を含む） |
 | `appPhase` | `AppPhase` | 現在のアプリフェーズ |
 | `rouletteState` | `RouletteState` | ルーレット実行中の状態 |
-| `fixedSeatAssignments` | `FixedSeatAssignment[]` | 固定座席割り当ての設定 |
+| `fixedSeatAssignments` | `FixedSeatAssignment[]` | 座席指定（許可エリア）の設定 |
 
 ### Context に追加すべきでないもの
 
@@ -84,7 +84,7 @@ src/
 │   │   └── SeatingChart.tsx    # 座席確認・D&D による手動調整
 │   ├── Config/
 │   │   ├── SeatConfig.tsx      # 座席レイアウト設定画面（ラッパー）
-│   │   └── FixedSeatConfig.tsx # 固定座席設定画面
+│   │   └── FixedSeatConfig.tsx # 座席指定（許可エリア）設定画面
 │   ├── ControlPanel/
 │   │   └── ControlPanel.tsx    # 汎用コントロールパネル
 │   ├── Layout/

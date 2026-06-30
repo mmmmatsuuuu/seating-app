@@ -63,24 +63,38 @@ type SeatMap = SeatMapData[];
 
 ---
 
-## FixedSeatAssignment（固定座席割り当て）
+## FixedSeatAssignment（座席指定 / 許可エリア）
 
 **ファイル**: `src/types/Seat.ts`
 
 ```typescript
 interface FixedSeatAssignment {
-  studentId: string; // Student.id に対応
-  seatId: string;    // SeatMapData.seatId に対応
+  studentId: string;             // Student.id に対応
+  seatIds: string[];             // 許可する座席ID（SeatMapData.seatId）の配列
+  highlightScope?: 'all' | 'area'; // ルーレット演出で点灯させる範囲（未指定は 'all'）
 }
 ```
 
 ### 役割と動作
 
-- 特定の生徒を特定の座席に固定するための設定（1 生徒につき 1 座席）
+- 特定の生徒が座れる座席を「許可エリア」として複数指定する設定（1 生徒につき複数席）
+  - `seatIds` が 1 つだけならピンポイント固定と同じ挙動になる
+  - 複数指定するとその許可エリア内の空席から抽選される
 - `fixedSeatAssignments` として `AppStateContext` で管理
 - `fixedSeat` フェーズで設定し、`roulette` フェーズで適用される
-- ルーレット実行時、固定座席の生徒は最優先でその座席に割り当てられる
-- 固定座席は `SeatMapData.assignedStudentId` や `Student.isAssigned` には反映されない（あくまで「予約」の情報）。実際の反映はルーレット停止・一括割り当て時に行われる
+- ルーレット実行時、許可エリアに**空席が残っていればその中から**抽選する
+- 許可エリアがすべて埋まっている場合は、**条件を無視して全空席から抽選する**（フォールバック）。エラーは表示しない（生徒に裏方の操作を悟られないため）
+- `highlightScope` は**演出（点灯範囲）のみ**を制御し、最終的な当選席とは独立している
+  - `'all'`（既定）: 全空席を点灯。ピンポイント固定でも普通の抽選に見せたいとき
+  - `'area'`: 許可エリア内のみ点灯。希望を尊重していると安心させたいとき
+  - 全体点灯で許可エリア外に止まっても、当選席は必ず許可エリア内に補正される
+- 一括割り当てでは、許可エリア指定のある生徒を「選べる空席が少ない順」に先に処理してから残りをランダム割り当てする。やはり埋まっていれば条件を無視する
+- 許可エリアは `SeatMapData.assignedStudentId` や `Student.isAssigned` には反映されない（あくまで「予約」の情報）。実際の反映はルーレット停止・一括割り当て時に行われる
+
+### 旧形式からの移行
+
+- 旧形式は `{ studentId, seatId: string }`（1 席のみ）だった
+- `loadAppData`（`src/utils/localStorage.ts`）読み込み時に `{ seatId }` → `{ seatIds: [seatId] }` へ自動移行する
 
 ---
 
