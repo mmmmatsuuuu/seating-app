@@ -69,8 +69,9 @@ type SeatMap = SeatMapData[];
 
 ```typescript
 interface FixedSeatAssignment {
-  studentId: string;   // Student.id に対応
-  seatIds: string[];   // 許可する座席ID（SeatMapData.seatId）の配列
+  studentId: string;             // Student.id に対応
+  seatIds: string[];             // 許可する座席ID（SeatMapData.seatId）の配列
+  highlightScope?: 'all' | 'area'; // ルーレット演出で点灯させる範囲（未指定は 'all'）
 }
 ```
 
@@ -83,6 +84,10 @@ interface FixedSeatAssignment {
 - `fixedSeat` フェーズで設定し、`roulette` フェーズで適用される
 - ルーレット実行時、許可エリアに**空席が残っていればその中から**抽選する
 - 許可エリアがすべて埋まっている場合は、**条件を無視して全空席から抽選する**（フォールバック）。エラーは表示しない（生徒に裏方の操作を悟られないため）
+- `highlightScope` は**演出（点灯範囲）のみ**を制御し、最終的な当選席とは独立している
+  - `'all'`（既定）: 全空席を点灯。ピンポイント固定でも普通の抽選に見せたいとき
+  - `'area'`: 許可エリア内のみ点灯。希望を尊重していると安心させたいとき
+  - 全体点灯で許可エリア外に止まっても、当選席は必ず許可エリア内に補正される
 - 一括割り当てでは、許可エリア指定のある生徒を「選べる空席が少ない順」に先に処理してから残りをランダム割り当てする。やはり埋まっていれば条件を無視する
 - 許可エリアは `SeatMapData.assignedStudentId` や `Student.isAssigned` には反映されない（あくまで「予約」の情報）。実際の反映はルーレット停止・一括割り当て時に行われる
 

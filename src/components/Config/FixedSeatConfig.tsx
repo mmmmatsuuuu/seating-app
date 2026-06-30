@@ -107,6 +107,11 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
     [seatMap]
   );
 
+  const currentScope = useMemo(() => {
+    const assignment = editableFixedSeatAssignments.find(a => a.studentId === selectedStudentId);
+    return assignment?.highlightScope ?? 'all';
+  }, [editableFixedSeatAssignments, selectedStudentId]);
+
   // 選択中の生徒の許可座席集合を書き換える。空になったら設定ごと削除する
   const setSeatIdsForCurrentStudent = useCallback((updater: (prev: string[]) => string[]) => {
     if (!selectedStudentId) return;
@@ -115,8 +120,14 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
       const nextSeatIds = updater(existing?.seatIds ?? []);
       const others = prev.filter(a => a.studentId !== selectedStudentId);
       if (nextSeatIds.length === 0) return others;
-      return [...others, { studentId: selectedStudentId, seatIds: nextSeatIds }];
+      return [...others, { studentId: selectedStudentId, seatIds: nextSeatIds, highlightScope: existing?.highlightScope ?? 'all' }];
     });
+  }, [selectedStudentId]);
+
+  const setScopeForCurrentStudent = useCallback((scope: 'all' | 'area') => {
+    setEditableFixedSeatAssignments(prev =>
+      prev.map(a => a.studentId === selectedStudentId ? { ...a, highlightScope: scope } : a)
+    );
   }, [selectedStudentId]);
 
   const toggleSeat = useCallback((seatId: string) => {
@@ -264,7 +275,7 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
                         <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, mr: 1, flexShrink: 0 }} />
                         <ListItemText
                           primary={`${student.number}番 ${student.name}`}
-                          secondary={`${assignment.seatIds.length}席`}
+                          secondary={`${assignment.seatIds.length}席・${(assignment.highlightScope ?? 'all') === 'area' ? '範囲点灯' : '全体点灯'}`}
                           primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                           secondaryTypographyProps={{ variant: 'caption' }}
                         />
@@ -324,7 +335,7 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
                 この生徒の指定をクリア
               </Button>
             </Box>
-            <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
               {selectedStudent ? (
                 <Typography variant="body2" color="text.secondary">
                   {selectedStudent.number}番 {selectedStudent.name} の許可席: <strong>{currentSeatIds.size}席</strong>
@@ -337,6 +348,19 @@ const FixedSeatConfig: React.FC<FixedSeatConfigProps> = ({
                   生徒を選択すると座席を指定できます。
                 </Typography>
               )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+                <Typography variant="caption" color="text.secondary">ルーレット点灯:</Typography>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={currentScope}
+                  onChange={(_, scope) => { if (scope) setScopeForCurrentStudent(scope); }}
+                  disabled={!selectedStudentId || currentSeatIds.size === 0}
+                >
+                  <ToggleButton value="all">全体</ToggleButton>
+                  <ToggleButton value="area">範囲内のみ</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
             </Box>
           </Paper>
 

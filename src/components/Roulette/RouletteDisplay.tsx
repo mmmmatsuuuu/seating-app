@@ -73,7 +73,7 @@ const RouletteDisplay: React.FC = () => {
     return seatMap.filter(seat => seat.isUsable && !seat.assignedStudentId);
   }, [seatMap]);
 
-  // 現在の生徒に許可された空席。許可エリアが指定されていてもすべて埋まっている場合は
+  // 現在の生徒の最終的な当選候補となる空席。許可エリアが指定されていてもすべて埋まっている場合は
   // 条件を無視して全空席を対象にする（生徒に裏方の操作を悟られないためエラーは出さない）。
   const allowedSeatsForCurrentStudent = useMemo(() => {
     if (!selectedStudentForAssignment) return availableSeats;
@@ -81,6 +81,17 @@ const RouletteDisplay: React.FC = () => {
     if (!fsa || fsa.seatIds.length === 0) return availableSeats;
     const allowedAvailable = availableSeats.filter(s => fsa.seatIds.includes(s.seatId));
     return allowedAvailable.length > 0 ? allowedAvailable : availableSeats;
+  }, [selectedStudentForAssignment, availableSeats, fixedSeatAssignments]);
+
+  // ルーレット演出で点灯させる空席。当選候補（allowedSeatsForCurrentStudent）とは独立しており、
+  // highlightScope='all' なら全空席を点灯させてピンポイント固定でも普通の抽選に見せる。
+  const spinSeatsForCurrentStudent = useMemo(() => {
+    if (!selectedStudentForAssignment) return availableSeats;
+    const fsa = fixedSeatAssignments.find(f => f.studentId === selectedStudentForAssignment.id);
+    if (!fsa || fsa.seatIds.length === 0) return availableSeats;
+    const allowedAvailable = availableSeats.filter(s => fsa.seatIds.includes(s.seatId));
+    if (allowedAvailable.length === 0) return availableSeats; // 許可エリアが埋まっているので全空席で演出
+    return (fsa.highlightScope ?? 'all') === 'area' ? allowedAvailable : availableSeats;
   }, [selectedStudentForAssignment, availableSeats, fixedSeatAssignments]);
 
   useEffect(() => {
@@ -108,14 +119,14 @@ const RouletteDisplay: React.FC = () => {
     const animate = (currentTime: number) => {
       if (!lastTime || currentTime - lastTime >= rouletteSpeed) {
         lastTime = currentTime;
-        const randomIndex = Math.floor(Math.random() * allowedSeatsForCurrentStudent.length);
-        const randomSeatId = allowedSeatsForCurrentStudent[randomIndex]?.seatId || null;
+        const randomIndex = Math.floor(Math.random() * spinSeatsForCurrentStudent.length);
+        const randomSeatId = spinSeatsForCurrentStudent[randomIndex]?.seatId || null;
         setRouletteState((prev: RouletteState) => ({ ...prev, currentSelectedSeatId: randomSeatId }));
       }
       animationFrameRef.current = requestAnimationFrame(animate);
     };
     animationFrameRef.current = requestAnimationFrame(animate);
-  }, [availableSeats, allowedSeatsForCurrentStudent, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
+  }, [availableSeats, spinSeatsForCurrentStudent, rouletteState.isRunning, selectedStudentForAssignment, setRouletteState, rouletteSpeed]);
 
   const stopRoulette = useCallback(() => {
     if (!rouletteState.isRunning) return;
@@ -136,11 +147,12 @@ const RouletteDisplay: React.FC = () => {
 
     let finalChosenSeatId: string | null = null;
 
-    // 教師による手動選択を最優先で尊重し、次にルーレットで点灯していた座席、
-    // どちらも無ければ許可エリア（埋まっていれば全空席）からランダムに決定する。
+    // 教師による手動選択を最優先で尊重する。次に、点灯していた席が許可エリア内ならそれを採用
+    // （全体点灯で許可エリア外に止まった場合は不採用）。どちらも無ければ許可エリア
+    // （埋まっていれば全空席）からランダムに決定する。これで演出と当選席を分離できる。
     if (manuallySelectedSeatIdForRoulette && availableSeats.find((s: SeatMapData) => s.seatId === manuallySelectedSeatIdForRoulette)) {
       finalChosenSeatId = manuallySelectedSeatIdForRoulette;
-    } else if (rouletteState.currentSelectedSeatId && availableSeats.find((s: SeatMapData) => s.seatId === rouletteState.currentSelectedSeatId)) {
+    } else if (rouletteState.currentSelectedSeatId && allowedSeatsForCurrentStudent.find((s: SeatMapData) => s.seatId === rouletteState.currentSelectedSeatId)) {
       finalChosenSeatId = rouletteState.currentSelectedSeatId;
     } else if (allowedSeatsForCurrentStudent.length > 0) {
       finalChosenSeatId = allowedSeatsForCurrentStudent[Math.floor(Math.random() * allowedSeatsForCurrentStudent.length)].seatId;
